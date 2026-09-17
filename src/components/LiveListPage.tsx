@@ -1,0 +1,13 @@
+import { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
+import { ErrorBanner, PageHeader, RemoteTable, secondaryButtonClass } from './RemoteTable';
+type Row = Record<string, unknown>;
+const unwrap = (payload: unknown): Row[] => { if (Array.isArray(payload)) return payload as Row[]; if (!payload || typeof payload !== 'object') return []; const record = payload as Record<string, unknown>; for (const key of ['data','users','drivers','rides','transactions','loans','logs']) { if (Array.isArray(record[key])) return record[key] as Row[]; if (record[key] && typeof record[key] === 'object') { const nested = unwrap(record[key]); if (nested.length) return nested; } } return []; };
+const display = (value: unknown) => { if (value === null || value === undefined || value === '') return '—'; if (typeof value === 'boolean') return value ? 'Yes' : 'No'; if (typeof value === 'object') return JSON.stringify(value); return String(value); };
+export function LiveListPage({ title, description, load, columns, action }: { title: string; description: string; load: () => Promise<{ data: unknown }>; columns: { key: string; label: string; render?: (row: Row) => string }[]; action?: { label: string; run: () => Promise<unknown> } }) {
+ const [rows,setRows]=useState<Row[]>([]); const [loading,setLoading]=useState(true); const [working,setWorking]=useState(false); const [error,setError]=useState('');
+ const refresh=useCallback(async()=>{setLoading(true);setError('');try{const response=await load();setRows(unwrap(response.data));}catch(e){setError(axios.isAxiosError(e)?String(e.response?.data?.message||e.message):'Unexpected error');}finally{setLoading(false);}},[load]);
+ useEffect(()=>{void refresh();},[refresh]);
+ const runAction=async()=>{if(!action)return;setWorking(true);setError('');try{await action.run();await refresh();}catch(e){setError(axios.isAxiosError(e)?String(e.response?.data?.message||e.message):'Unexpected error');}finally{setWorking(false);}};
+ return <section><PageHeader title={title} description={description} action={action?<button disabled={working} onClick={runAction} className={secondaryButtonClass}>{working?'Working…':action.label}</button>:undefined}/>{error?<ErrorBanner message={error} retry={refresh}/>:null}<RemoteTable heads={columns.map(c=>c.label)} loading={loading} empty={!rows.length}>{rows.map((row,index)=><tr key={String(row._id||row.id||row.ref||index)} className="border-t border-white/5">{columns.map(column=><td key={column.key} className="max-w-xs truncate py-4 pr-4 text-slate-300" title={display(column.render?column.render(row):row[column.key])}>{display(column.render?column.render(row):row[column.key])}</td>)}</tr>)}</RemoteTable></section>;
+}
