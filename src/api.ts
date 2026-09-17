@@ -7,6 +7,8 @@ export type UserInput = Partial<UserRecord> & { firstName: string; lastName: str
 export const adminApi = {
   stats: () => api.get('/admin/stats'), users: (params?: Record<string, unknown>) => api.get('/admin/users', { params }), user: (id: string) => api.get(`/admin/users/${id}`),
   createUser: (data: UserInput) => api.post('/admin/users', data), updateUser: (id: string, data: Partial<UserInput>) => api.patch(`/admin/users/${id}`, data),
+  userOverview: (id: string) => api.get(`/admin/users/${id}/overview`), updateDriverProfile: (id: string, data: Record<string, unknown>) => api.patch(`/admin/drivers/${id}/profile`, data),
+  adjustDriverWallet: (id: string, amount: number, reason: string, idempotencyKey: string) => api.post(`/admin/drivers/${id}/wallet-adjust`, { amount, reason }, { headers: { 'Idempotency-Key': idempotencyKey } }),
   assignUserRole: (id: string, role: string, roleId?: string) => api.patch(`/admin/users/${id}/role`, { role, roleId }), deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
   setUserActive: (id: string, isActive: boolean) => api.put(`/admin/users/${id}/status`, { isActive }), verifyUser: (id: string) => api.put(`/admin/users/${id}/verify`), setKyc: (id: string, kycLevel: 'basic' | 'full') => api.put(`/admin/users/${id}/kyc`, { kycLevel }),
   drivers: (params?: Record<string, unknown>) => api.get('/admin/drivers', { params }), registrations: (params?: Record<string, unknown>) => api.get('/admin/registrations', { params }), reviewRegistration: (id: string, status: string, remarks: string) => api.put(`/admin/registrations/${id}/status`, { status, remarks }),
@@ -18,4 +20,4 @@ export const adminApi = {
   fines: () => api.get('/fine-requests/all', { params: { limit: 100 } }), approveFine: (id: string, notes?: string) => api.put(`/fine-requests/${id}/approve`, { notes }), rejectFine: (id: string, reason: string) => api.put(`/fine-requests/${id}/reject`, { reason }), reviewFine: (id: string) => api.put(`/fine-requests/${id}/review`),
   supportCases: () => api.get('/admin/support-cases'), createSupportCase: (data: Record<string, unknown>) => api.post('/admin/support-cases', data), updateSupportCase: (id: string, data: Record<string, unknown>) => api.patch(`/admin/support-cases/${id}`, data), deleteSupportCase: (id: string) => api.delete(`/admin/support-cases/${id}`),
 };
-export const authApi = { login: (identifier: string, password: string) => api.post('/auth/login', { identifier, password }), me: () => api.get('/users/me') };
+export const authApi = { login: (identifier: string, password: string) => api.post('/auth/login', { identifier, password }), me: () => api.get('/users/me'), updateMe: (data: Record<string, unknown>) => api.put('/users/me', data) };
