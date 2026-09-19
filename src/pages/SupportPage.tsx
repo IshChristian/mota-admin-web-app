@@ -1,4 +1,497 @@
-import {FormEvent,useCallback,useEffect,useState} from'react';import axios from'axios';import{adminApi}from'../api';import{useAuth}from'../auth';import{ErrorBanner,PageHeader,buttonClass,inputClass,secondaryButtonClass}from'../components/RemoteTable';
-type Person={_id:string;firstName:string;lastName:string;phone?:string;email?:string};type Ride={_id:string;passengerId?:Person;driverId?:Person;rideStatus:string;paymentStatus?:string;fare?:number;offeredFare?:number;pickup?:{address?:string;name?:string};destination?:{address?:string;name?:string};requestedAt?:string};type Case={_id:string;subject:string;description:string;priority:string;status:string;category?:string;customerId?:Person;driverId?:Person;rideId?:Ride;assignedTo?:Person;escalated?:boolean;lastPassengerNotificationAt?:string;contactHistory?:unknown[]};type Operations={cases:Case[];rides:Ride[];drivers:Person[]};const empty={subject:'',description:'',priority:'normal',category:'acceptance_notification',rideId:'',customerId:'',driverId:'',assignedTo:''};const msg=(e:unknown)=>axios.isAxiosError(e)?String(e.response?.data?.message||e.message):'Unexpected error';
-export function SupportPage(){const{staff,can}=useAuth();const[data,setData]=useState<Operations>({cases:[],rides:[],drivers:[]});const[selected,setSelected]=useState<Case|null>(null);const[form,setForm]=useState(empty);const[open,setOpen]=useState(false);const[error,setError]=useState('');const[loading,setLoading]=useState(true);const load=useCallback(async()=>{setLoading(true);try{const response=await adminApi.supportOperations();setData(response.data.data);setError('');}catch(e){setError(msg(e));}finally{setLoading(false);}},[]);useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),20000);return()=>window.clearInterval(timer);},[load]);const create=async(e:FormEvent)=>{e.preventDefault();try{await adminApi.createSupportCase({...form,assignedTo:form.assignedTo||staff?.id});setOpen(false);setForm(empty);await load();}catch(err){setError(msg(err));}};const patch=async(item:Case,changes:Record<string,unknown>)=>{try{await adminApi.updateSupportCase(item._id,changes);await load();}catch(e){setError(msg(e));}};const logContact=async(item:Case)=>{const note=window.prompt('Contact note');if(!note)return;const channel=window.prompt('Channel: call, sms, email, push, in_app','call')||'call';const outcome=window.prompt('Outcome: answered, no_answer, sent, failed, callback_requested, resolved','answered')||'answered';try{await adminApi.logSupportContact(item._id,{channel,outcome,direction:'outbound',note});await load();}catch(e){setError(msg(e));}};const notify=async(item:Case)=>{if(!window.confirm('Resend this ride update by in-app, SMS, email and push where configured?'))return;try{await adminApi.notifySupportPassenger(item._id);await load();}catch(e){setError(msg(e));}};const assign=async(ride:Ride)=>{const driverId=window.prompt(`Available driver ID:\n${data.drivers.map(d=>`${d.firstName} ${d.lastName}: ${d._id}`).join('\n')}`);if(!driverId)return;try{await adminApi.assignSupportRide(ride._id,driverId,selected?._id);await load();}catch(e){setError(msg(e));}};
- const unassigned=data.rides.filter(ride=>['requested','searching'].includes(ride.rideStatus));const accepted=data.rides.filter(ride=>!['requested','searching'].includes(ride.rideStatus));return <section><PageHeader title="Call-center ride operations" description="Coordinate passengers and drivers, recover missed notifications, record contact attempts, assign cases, and escalate ride problems." action={can('support:update')?<button className={buttonClass} onClick={()=>setOpen(true)}>Open support case</button>:undefined}/>{error?<ErrorBanner message={error} retry={load}/>:null}<div className="mb-6 grid gap-4 md:grid-cols-4">{[['Open cases',data.cases.length],['Unassigned rides',unassigned.length],['Active accepted rides',accepted.length],['Available drivers',data.drivers.length]].map(([label,value])=><article key={String(label)} className="rounded-2xl border border-white/10 bg-panel p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-3 text-3xl font-semibold">{value}</p></article>)}</div>{loading?<p className="text-slate-400">Refreshing live operations…</p>:null}<div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]"><div className="space-y-6"><section className="rounded-2xl border border-white/10 bg-panel p-5"><h2 className="font-semibold">Ride intervention queue</h2><p className="mb-4 text-sm text-slate-500">Requested rides can be manually assigned only to currently available drivers.</p><div className="space-y-3">{data.rides.map(ride=><article key={ride._id} className="rounded-xl border border-white/10 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><b>{ride.passengerId?`${ride.passengerId.firstName} ${ride.passengerId.lastName}`:'Passenger unavailable'}</b><p className="text-xs text-slate-500">{ride.pickup?.name||ride.pickup?.address||'Pickup'} → {ride.destination?.name||ride.destination?.address||'Destination'}</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs">{ride.rideStatus}</span></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-3"><span>Driver: {ride.driverId?`${ride.driverId.firstName} ${ride.driverId.lastName}`:'Unassigned'}</span><span>Payment: {ride.paymentStatus||'pending'}</span><span>Fare: {ride.fare||ride.offeredFare||'—'} RWF</span></div>{['requested','searching'].includes(ride.rideStatus)&&can('ride:manage')?<button className={`${secondaryButtonClass} mt-3`} onClick={()=>assign(ride)}>Assign available driver</button>:null}</article>)}{!data.rides.length?<p className="text-sm text-slate-500">No active ride operations.</p>:null}</div></section></div><section className="rounded-2xl border border-white/10 bg-panel p-5"><h2 className="font-semibold">Support cases</h2><p className="mb-4 text-sm text-slate-500">Select a case before assigning its linked ride.</p><div className="space-y-3">{data.cases.map(item=><article key={item._id} className={`rounded-xl border p-4 ${selected?._id===item._id?'border-lime':'border-white/10'}`}><button className="w-full text-left" onClick={()=>setSelected(item)}><div className="flex justify-between gap-2"><b>{item.subject}</b><span className="text-xs uppercase text-slate-500">{item.priority}</span></div><p className="mt-1 text-sm text-slate-400">{item.description}</p><p className="mt-2 text-xs text-slate-500">{item.customerId?`${item.customerId.firstName} ${item.customerId.lastName}`:'No passenger linked'} • {item.category||'other'} • {item.contactHistory?.length||0} contacts</p></button><div className="mt-3 flex flex-wrap gap-2">{can('call_log:create')?<button className={secondaryButtonClass} onClick={()=>logContact(item)}>Log contact</button>:null}{can('notification:send')&&item.rideId?<button className={secondaryButtonClass} onClick={()=>notify(item)}>Resend passenger update</button>:null}{can('support:update')?<><button className={secondaryButtonClass} onClick={()=>patch(item,{assignedTo:staff?.id,status:'in_progress'})}>Assign to me</button><button className={secondaryButtonClass} onClick={()=>patch(item,{escalated:!item.escalated})}>{item.escalated?'Remove escalation':'Escalate'}</button></>:null}</div>{item.lastPassengerNotificationAt?<p className="mt-2 text-xs text-lime">Passenger notified {new Date(item.lastPassengerNotificationAt).toLocaleString()}</p>:null}</article>)}{!data.cases.length?<p className="text-sm text-slate-500">No open cases.</p>:null}</div></section></div>{open?<div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"><form onSubmit={create} className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-white/10 bg-panel p-6"><h3 className="text-xl font-semibold">Open ride-support case</h3><div className="mt-5 grid gap-3 md:grid-cols-2"><input required className={inputClass} placeholder="Subject" value={form.subject} onChange={e=>setForm(v=>({...v,subject:e.target.value}))}/><select className={inputClass} value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))}>{['ride_assignment','acceptance_notification','driver_arrival','ride_start','ride_stop','payment','cancellation','other'].map(v=><option className="bg-ink" key={v}>{v}</option>)}</select><select className={inputClass} value={form.priority} onChange={e=>setForm(v=>({...v,priority:e.target.value}))}>{['low','normal','high','urgent'].map(v=><option className="bg-ink" key={v}>{v}</option>)}</select><select className={inputClass} value={form.rideId} onChange={e=>{const ride=data.rides.find(r=>r._id===e.target.value);setForm(v=>({...v,rideId:e.target.value,customerId:ride?.passengerId?._id||'',driverId:ride?.driverId?._id||''}));}}><option value="">Link a ride</option>{data.rides.map(ride=><option className="bg-ink" key={ride._id} value={ride._id}>{ride._id.slice(-8)} • {ride.rideStatus}</option>)}</select><textarea required className={`${inputClass} md:col-span-2`} rows={5} placeholder="Describe the communication or operational problem" value={form.description} onChange={e=>setForm(v=>({...v,description:e.target.value}))}/></div><div className="mt-5 flex justify-end gap-3"><button type="button" className={secondaryButtonClass} onClick={()=>setOpen(false)}>Cancel</button><button className={buttonClass}>Create and assign</button></div></form></div>:null}</section>}
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import axios from "axios";
+import { adminApi } from "../api";
+import { useAuth } from "../auth";
+import {
+  ErrorBanner,
+  PageHeader,
+  buttonClass,
+  inputClass,
+  secondaryButtonClass,
+} from "../components/RemoteTable";
+type Point = {
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  name?: string;
+};
+type Person = {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  email?: string;
+  lastLocation?: Point;
+  lastLocationAt?: string;
+};
+type Ride = {
+  _id: string;
+  passengerId?: Person;
+  driverId?: Person;
+  rideStatus: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  fare?: number;
+  offeredFare?: number;
+  pickup?: Point;
+  destination?: Point;
+  requestedAt?: string;
+};
+type Case = {
+  _id: string;
+  subject: string;
+  description: string;
+  priority: string;
+  status: string;
+  category?: string;
+  customerId?: Person;
+  driverId?: Person;
+  rideId?: Ride;
+  assignedTo?: Person;
+  escalated?: boolean;
+  lastPassengerNotificationAt?: string;
+  contactHistory?: unknown[];
+};
+type Operations = { cases: Case[]; rides: Ride[]; drivers: Person[] };
+const empty = {
+  subject: "",
+  description: "",
+  priority: "normal",
+  category: "acceptance_notification",
+  rideId: "",
+  customerId: "",
+  driverId: "",
+  assignedTo: "",
+};
+const msg = (e: unknown) =>
+  axios.isAxiosError(e)
+    ? String(e.response?.data?.message || e.message)
+    : "Unexpected error";
+export function SupportPage() {
+  const { staff, can } = useAuth();
+  const [data, setData] = useState<Operations>({
+    cases: [],
+    rides: [],
+    drivers: [],
+  });
+  const [selected, setSelected] = useState<Case | null>(null);
+  const [form, setForm] = useState(empty);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.supportOperations();
+      setData(response.data.data);
+      setError("");
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 20000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await adminApi.createSupportCase({
+        ...form,
+        assignedTo: form.assignedTo || staff?.id,
+      });
+      setOpen(false);
+      setForm(empty);
+      await load();
+    } catch (err) {
+      setError(msg(err));
+    }
+  };
+  const patch = async (item: Case, changes: Record<string, unknown>) => {
+    try {
+      await adminApi.updateSupportCase(item._id, changes);
+      await load();
+    } catch (e) {
+      setError(msg(e));
+    }
+  };
+  const logContact = async (item: Case) => {
+    const note = window.prompt("Contact note");
+    if (!note) return;
+    const channel =
+      window.prompt("Channel: call, sms, email, push, in_app", "call") ||
+      "call";
+    const outcome =
+      window.prompt(
+        "Outcome: answered, no_answer, sent, failed, callback_requested, resolved",
+        "answered",
+      ) || "answered";
+    try {
+      await adminApi.logSupportContact(item._id, {
+        channel,
+        outcome,
+        direction: "outbound",
+        note,
+      });
+      await load();
+    } catch (e) {
+      setError(msg(e));
+    }
+  };
+  const notify = async (item: Case) => {
+    if (
+      !window.confirm(
+        "Resend this ride update by in-app, SMS, email and push where configured?",
+      )
+    )
+      return;
+    try {
+      await adminApi.notifySupportPassenger(item._id);
+      await load();
+    } catch (e) {
+      setError(msg(e));
+    }
+  };
+  const assign = async (ride: Ride) => {
+    const driverId = window.prompt(
+      `Available driver ID:\n${data.drivers.map((d) => `${d.firstName} ${d.lastName}: ${d._id}`).join("\n")}`,
+    );
+    if (!driverId) return;
+    try {
+      await adminApi.assignSupportRide(ride._id, driverId, selected?._id);
+      await load();
+    } catch (e) {
+      setError(msg(e));
+    }
+  };
+  const createRide = async () => {
+    const passengerId = window.prompt("Passenger account ID");
+    if (!passengerId) return;
+    const pickupLat = Number(window.prompt("Pickup latitude", "-1.9441"));
+    const pickupLng = Number(window.prompt("Pickup longitude", "30.0619"));
+    const destinationLat = Number(window.prompt("Destination latitude", "-1.9536"));
+    const destinationLng = Number(window.prompt("Destination longitude", "30.0606"));
+    const offeredFare = Number(window.prompt("Offered fare (RWF)", "3000"));
+    try {
+      await adminApi.createSupportRide({ passengerId, pickup: { latitude: pickupLat, longitude: pickupLng, name: "Caller-provided pickup" }, destination: { latitude: destinationLat, longitude: destinationLng, name: "Caller-provided destination" }, offeredFare, paymentMethod: "cash" });
+      await load();
+    } catch (e) { setError(msg(e)); }
+  };
+  const updateRide = async (ride: Ride) => {
+    const rideStatus = window.prompt("Ride status", ride.rideStatus);
+    if (!rideStatus) return;
+    const fare = Number(window.prompt("Fare (RWF)", String(ride.fare || ride.offeredFare || 0)));
+    try { await adminApi.updateSupportRide(ride._id, { rideStatus, fare, offeredFare: fare }); await load(); }
+    catch (e) { setError(msg(e)); }
+  };
+  const trackRide = (ride: Ride) => {
+    const location = ride.driverId?.lastLocation || ride.pickup;
+    if (location?.latitude == null || location.longitude == null) { setError("No live GPS location is available for this ride."); return; }
+    window.open(`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=16/${location.latitude}/${location.longitude}`, "_blank", "noopener,noreferrer");
+  };
+  const unassigned = data.rides.filter((ride) =>
+    ["requested", "searching"].includes(ride.rideStatus),
+  );
+  const accepted = data.rides.filter(
+    (ride) => !["requested", "searching"].includes(ride.rideStatus),
+  );
+  return (
+    <section>
+      <PageHeader
+        title="Call-center ride operations"
+        description="Coordinate passengers and drivers, recover missed notifications, record contact attempts, assign cases, and escalate ride problems."
+        action={
+          can("support:update") ? (
+            <div className="flex flex-wrap gap-2">
+              <button className={secondaryButtonClass} onClick={() => void createRide()}>Create ride request</button>
+              <button className={buttonClass} onClick={() => setOpen(true)}>Open support case</button>
+            </div>
+          ) : undefined
+        }
+      />
+      {error ? <ErrorBanner message={error} retry={load} /> : null}
+      <div className="mb-6 grid gap-4 md:grid-cols-4">
+        {[
+          ["Open cases", data.cases.length],
+          ["Unassigned rides", unassigned.length],
+          ["Active accepted rides", accepted.length],
+          ["Available drivers", data.drivers.length],
+        ].map(([label, value]) => (
+          <article
+            key={String(label)}
+            className="rounded-2xl border border-white/10 bg-panel p-5"
+          >
+            <p className="text-sm text-slate-500">{label}</p>
+            <p className="mt-3 text-3xl font-semibold">{value}</p>
+          </article>
+        ))}
+      </div>
+      {loading ? (
+        <p className="text-slate-400">Refreshing live operations…</p>
+      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-white/10 bg-panel p-5">
+            <h2 className="font-semibold">Ride intervention queue</h2>
+            <p className="mb-4 text-sm text-slate-500">
+              Requested rides can be manually assigned only to currently
+              available drivers.
+            </p>
+            <div className="space-y-3">
+              {data.rides.map((ride) => (
+                <article
+                  key={ride._id}
+                  className="rounded-xl border border-white/10 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <b>
+                        {ride.passengerId
+                          ? `${ride.passengerId.firstName} ${ride.passengerId.lastName}`
+                          : "Passenger unavailable"}
+                      </b>
+                      <p className="text-xs text-slate-500">
+                        {ride.pickup?.name || ride.pickup?.address || "Pickup"}{" "}
+                        →{" "}
+                        {ride.destination?.name ||
+                          ride.destination?.address ||
+                          "Destination"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
+                      {ride.rideStatus}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                    <span>
+                      Driver:{" "}
+                      {ride.driverId
+                        ? `${ride.driverId.firstName} ${ride.driverId.lastName}`
+                        : "Unassigned"}
+                    </span>
+                    <span>Payment: {ride.paymentStatus || "pending"}</span>
+                    <span>
+                      Fare: {ride.fare || ride.offeredFare || "—"} RWF
+                    </span>
+                  </div>
+                  {["requested", "searching"].includes(ride.rideStatus) &&
+                  can("ride:manage") ? (
+                    <button
+                      className={`${secondaryButtonClass} mt-3`}
+                      onClick={() => assign(ride)}
+                    >
+                      Assign available driver
+                    </button>
+                  ) : null}
+                  {can("ride:manage") ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button className={secondaryButtonClass} onClick={() => void updateRide(ride)}>Update ride</button>
+                      <button className={secondaryButtonClass} onClick={() => trackRide(ride)}>Track live GPS</button>
+                    </div>
+                  ) : null}
+                  {ride.driverId?.lastLocation ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Driver GPS: {ride.driverId.lastLocation.latitude}, {ride.driverId.lastLocation.longitude} • {ride.driverId.lastLocationAt ? new Date(ride.driverId.lastLocationAt).toLocaleString() : "live"}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+              {!data.rides.length ? (
+                <p className="text-sm text-slate-500">
+                  No active ride operations.
+                </p>
+              ) : null}
+            </div>
+          </section>
+        </div>
+        <section className="rounded-2xl border border-white/10 bg-panel p-5">
+          <h2 className="font-semibold">Support cases</h2>
+          <p className="mb-4 text-sm text-slate-500">
+            Select a case before assigning its linked ride.
+          </p>
+          <div className="space-y-3">
+            {data.cases.map((item) => (
+              <article
+                key={item._id}
+                className={`rounded-xl border p-4 ${selected?._id === item._id ? "border-lime" : "border-white/10"}`}
+              >
+                <button
+                  className="w-full text-left"
+                  onClick={() => setSelected(item)}
+                >
+                  <div className="flex justify-between gap-2">
+                    <b>{item.subject}</b>
+                    <span className="text-xs uppercase text-slate-500">
+                      {item.priority}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {item.description}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {item.customerId
+                      ? `${item.customerId.firstName} ${item.customerId.lastName}`
+                      : "No passenger linked"}{" "}
+                    • {item.category || "other"} •{" "}
+                    {item.contactHistory?.length || 0} contacts
+                  </p>
+                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {can("call_log:create") ? (
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => logContact(item)}
+                    >
+                      Log contact
+                    </button>
+                  ) : null}
+                  {can("notification:send") && item.rideId ? (
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => notify(item)}
+                    >
+                      Resend passenger update
+                    </button>
+                  ) : null}
+                  {can("support:update") ? (
+                    <>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() =>
+                          patch(item, {
+                            assignedTo: staff?.id,
+                            status: "in_progress",
+                          })
+                        }
+                      >
+                        Assign to me
+                      </button>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() =>
+                          patch(item, { escalated: !item.escalated })
+                        }
+                      >
+                        {item.escalated ? "Remove escalation" : "Escalate"}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+                {item.lastPassengerNotificationAt ? (
+                  <p className="mt-2 text-xs text-lime">
+                    Passenger notified{" "}
+                    {new Date(
+                      item.lastPassengerNotificationAt,
+                    ).toLocaleString()}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+            {!data.cases.length ? (
+              <p className="text-sm text-slate-500">No open cases.</p>
+            ) : null}
+          </div>
+        </section>
+      </div>
+      {open ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
+          <form
+            onSubmit={create}
+            className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-white/10 bg-panel p-6"
+          >
+            <h3 className="text-xl font-semibold">Open ride-support case</h3>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <input
+                required
+                className={inputClass}
+                placeholder="Subject"
+                value={form.subject}
+                onChange={(e) =>
+                  setForm((v) => ({ ...v, subject: e.target.value }))
+                }
+              />
+              <select
+                className={inputClass}
+                value={form.category}
+                onChange={(e) =>
+                  setForm((v) => ({ ...v, category: e.target.value }))
+                }
+              >
+                {[
+                  "ride_assignment",
+                  "acceptance_notification",
+                  "driver_arrival",
+                  "ride_start",
+                  "ride_stop",
+                  "payment",
+                  "cancellation",
+                  "other",
+                ].map((v) => (
+                  <option className="bg-ink" key={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={inputClass}
+                value={form.priority}
+                onChange={(e) =>
+                  setForm((v) => ({ ...v, priority: e.target.value }))
+                }
+              >
+                {["low", "normal", "high", "urgent"].map((v) => (
+                  <option className="bg-ink" key={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={inputClass}
+                value={form.rideId}
+                onChange={(e) => {
+                  const ride = data.rides.find((r) => r._id === e.target.value);
+                  setForm((v) => ({
+                    ...v,
+                    rideId: e.target.value,
+                    customerId: ride?.passengerId?._id || "",
+                    driverId: ride?.driverId?._id || "",
+                  }));
+                }}
+              >
+                <option value="">Link a ride</option>
+                {data.rides.map((ride) => (
+                  <option className="bg-ink" key={ride._id} value={ride._id}>
+                    {ride._id.slice(-8)} • {ride.rideStatus}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                required
+                className={`${inputClass} md:col-span-2`}
+                rows={5}
+                placeholder="Describe the communication or operational problem"
+                value={form.description}
+                onChange={(e) =>
+                  setForm((v) => ({ ...v, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </button>
+              <button className={buttonClass}>Create and assign</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </section>
+  );
+}
