@@ -277,18 +277,10 @@ export function SupportPage() {
                       Fare: {ride.fare || ride.offeredFare || "—"} RWF
                     </span>
                   </div>
-                  {["requested", "searching"].includes(ride.rideStatus) &&
-                  can("ride:manage") ? (
-                    <button
-                      className={`${secondaryButtonClass} mt-3`}
-                      onClick={() => assign(ride)}
-                    >
-                      Assign available driver
-                    </button>
-                  ) : null}
+                  {["requested", "searching"].includes(ride.rideStatus) && can("ride:manage") ? <label className="mt-3 block text-xs text-slate-400">Assign nearby driver<select aria-label="Assign nearby driver" className={`${inputClass} mt-1`} defaultValue="" onChange={async e=>{if(!e.target.value)return;try{await adminApi.assignSupportRide(ride._id,e.target.value,selected?._id);await load()}catch(error){setError(msg(error))}}}><option value="">Select available driver</option>{data.drivers.map(driver=><option className="bg-ink" key={driver._id} value={driver._id}>{driver.firstName} {driver.lastName}{driver.lastLocationAt?' · GPS active':''}</option>)}</select></label> : null}
                   {can("ride:manage") ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button className={secondaryButtonClass} onClick={() => void updateRide(ride)}>Update ride</button>
+                      <select aria-label="Update ride status" className={inputClass} value={ride.rideStatus} onChange={async e=>{try{await adminApi.updateSupportRide(ride._id,{rideStatus:e.target.value});await load()}catch(error){setError(msg(error))}}}>{['requested','searching','approaching','arrived','start_requested','in_progress','stop_requested','awaiting_payment','completed','cancelled','expired'].map(status=><option className="bg-ink" key={status} value={status}>{status.replaceAll('_',' ')}</option>)}</select>
                       <button className={secondaryButtonClass} onClick={() => trackRide(ride)}>Track live GPS</button>
                     </div>
                   ) : null}
