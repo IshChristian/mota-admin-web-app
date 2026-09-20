@@ -49,14 +49,14 @@ export const adminApi = {
   userOverview: (id: string) => api.get(`/admin/users/${id}/overview`),
   updateDriverProfile: (id: string, data: Record<string, unknown>) =>
     api.patch(`/admin/drivers/${id}/profile`, data),
-  adjustDriverWallet: (
+  adjustUserWallet: (
     id: string,
     amount: number,
     reason: string,
     idempotencyKey: string,
   ) =>
     api.post(
-      `/admin/drivers/${id}/wallet-adjust`,
+      `/admin/users/${id}/wallet-adjust`,
       { amount, reason },
       { headers: { "Idempotency-Key": idempotencyKey } },
     ),
