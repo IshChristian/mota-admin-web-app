@@ -129,6 +129,10 @@ export const adminApi = {
     api.post("/admin/support-rides", data),
   updateSupportRide: (rideId: string, data: Record<string, unknown>) =>
     api.patch(`/admin/support-rides/${rideId}`, data),
+  kycRecords: (type: "driver" | "passenger", status?: string) =>
+    api.get("/admin/kyc", { params: { type, status } }),
+  reviewKyc: (type: "driver" | "passenger", id: string, status: "approved" | "correction" | "rejected", remarks?: string) =>
+    api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks }),
 };
 export const authApi = {
   login: (identifier: string, password: string) =>
