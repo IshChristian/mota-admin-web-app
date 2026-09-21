@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { adminApi, type UserRecord } from '../api';
 import { useAuth } from '../auth';
 import { ErrorBanner, PageHeader, buttonClass, inputClass, secondaryButtonClass } from '../components/RemoteTable';
-type Item=Record<string,unknown>; type Data={user:UserRecord&Record<string,unknown>;driverProfile:Item|null;uploads:Item[];rides:Item[];transactions:Item[];loans:Item[];fines:Item[];fineRequests:Item[];wallet:Item|null;auditLogs:Item[]};
+type Item=Record<string,unknown>; type Data={user:UserRecord&Record<string,unknown>;driverProfile:Item|null;passengerKyc:Item|null;driverKyc:Item|null;uploads:Item[];rides:Item[];transactions:Item[];loans:Item[];fines:Item[];fineRequests:Item[];wallet:Item|null;auditLogs:Item[]};
 const sections=['overview','personal','kyc','rides','transactions','loans','logs'] as const; type Section=typeof sections[number];
 const messageOf=(error:unknown)=>axios.isAxiosError(error)?String(error.response?.data?.message||error.message):'Unexpected error';
 const show=(value:unknown)=>value===null||value===undefined||value===''?'—':typeof value==='object'?JSON.stringify(value):String(value);
