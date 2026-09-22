@@ -9,6 +9,17 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const onStatusPage = window.location.pathname.startsWith("/status/");
+    if (!onStatusPage && status === 403) window.location.assign("/status/403");
+    else if (!onStatusPage && status === 503) window.location.assign("/status/maintenance");
+    else if (!onStatusPage && status >= 500) window.location.assign("/status/500");
+    return Promise.reject(error);
+  },
+);
 export type RoleRecord = {
   _id: string;
   name: string;
