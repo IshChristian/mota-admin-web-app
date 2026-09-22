@@ -25,6 +25,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
 import { AdminStatusPage } from './pages/AdminStatusPage';
+import { SafetyDisputesPage } from './pages/SafetyDisputesPage';
 
 function Protected() {
   const { staff } = useAuth();
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="roles" element={<RolesCrudPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="support" element={<SupportPage />} />
+            <Route path="safety-disputes" element={<SafetyDisputesPage />} />
             <Route path="operations-map" element={<OperationsMapPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="people" element={<Navigate to="/users" replace />} />

@@ -16,6 +16,7 @@ const items = [
   ['/roles', 'Staff & roles', Users, 'role:view'],
   ['/audit', 'Audit trail', Activity, 'audit:view'],
   ['/support', 'Caller support', Users, 'support:view'],
+  ['/safety-disputes', 'Safety & disputes', ShieldCheck, 'support:view'],
   ['/operations-map', 'Live map', Map, 'support:view'],
   ['/settings', 'Settings', Settings, 'settings:view'],
 ] as const;
