@@ -144,6 +144,10 @@ export const adminApi = {
     api.get("/admin/kyc", { params: { type, status } }),
   reviewKyc: (type: "driver" | "passenger", id: string, status: "approved" | "correction" | "rejected", remarks?: string) =>
     api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks }),
+  safetyEvents: (status?: string) => api.get('/production/admin/safety-events', { params: { status } }),
+  updateSafetyEvent: (id: string, data: Record<string, unknown>) => api.patch(`/production/admin/safety-events/${id}`, data),
+  rideDisputes: (status?: string) => api.get('/production/admin/disputes', { params: { status } }),
+  updateRideDispute: (id: string, data: Record<string, unknown>) => api.patch(`/production/admin/disputes/${id}`, data),
 };
 export const authApi = {
   login: (identifier: string, password: string) =>
