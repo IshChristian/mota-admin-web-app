@@ -60,6 +60,7 @@ export type UserInput = Partial<UserRecord> & {
 };
 export const adminApi = {
   stats: () => api.get("/admin/stats"),
+  operationsInsights: () => api.get("/admin/operations-insights"),
   users: (params?: Record<string, unknown>) =>
     api.get("/admin/users", { params }),
   user: (id: string) => api.get(`/admin/users/${id}`),
