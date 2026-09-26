@@ -48,6 +48,9 @@ type Case = {
   driverId?: Person;
   rideId?: Ride;
   assignedTo?: Person;
+  createdBy?: Person & { role?: string };
+  createdAt?: string;
+  resolution?: string;
   escalated?: boolean;
   lastPassengerNotificationAt?: string;
   contactHistory?: unknown[];
@@ -79,6 +82,7 @@ export function SupportPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [caseFilter, setCaseFilter] = useState("all");
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -198,6 +202,8 @@ export function SupportPage() {
   const accepted = data.rides.filter(
     (ride) => !["requested", "searching"].includes(ride.rideStatus),
   );
+  const source = (item: Case) => item.createdBy?.role || "unknown";
+  const cases = data.cases.filter((item) => caseFilter === "all" || source(item) === caseFilter);
   return (
     <section>
       <PageHeader
@@ -216,6 +222,7 @@ export function SupportPage() {
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         {[
           ["Open cases", data.cases.length],
+          ["Agent requests", data.cases.filter((item) => source(item) === "agent").length],
           ["Unassigned rides", unassigned.length],
           ["Active accepted rides", accepted.length],
           ["Available drivers", data.drivers.length],
@@ -302,10 +309,22 @@ export function SupportPage() {
         <section className="rounded-2xl border border-white/10 bg-panel p-5">
           <h2 className="font-semibold">Support cases</h2>
           <p className="mb-4 text-sm text-slate-500">
-            Select a case before assigning its linked ride.
+            Review requests from agents, passengers, drivers, and staff. Select a case before assigning its linked ride.
           </p>
+          <label className="mb-4 block text-sm text-slate-400">Request source
+            <select className={`${inputClass} mt-1`} value={caseFilter} onChange={(event) => setCaseFilter(event.target.value)}>
+              <option value="all">All sources</option>
+              <option value="agent">Agents</option>
+              <option value="driver">Drivers</option>
+              <option value="client">Passengers</option>
+              <option value="admin">Admins</option>
+              <option value="superadmin">Superadmins</option>
+              <option value="caller_support">Support staff</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
           <div className="space-y-3">
-            {data.cases.map((item) => (
+            {cases.map((item) => (
               <article
                 key={item._id}
                 className={`rounded-xl border p-4 ${selected?._id === item._id ? "border-lime" : "border-white/10"}`}
@@ -323,8 +342,14 @@ export function SupportPage() {
                   <p className="mt-1 text-sm text-slate-400">
                     {item.description}
                   </p>
+                  <p className="mt-2 text-xs text-lime">
+                    From {source(item)}: {item.createdBy ? `${item.createdBy.firstName} ${item.createdBy.lastName}` : "Account unavailable"}
+                    {item.createdBy?.phone ? ` · ${item.createdBy.phone}` : ""}
+                    {item.createdAt ? ` · ${new Date(item.createdAt).toLocaleString()}` : ""}
+                    {` · ${item.status.replaceAll("_", " ")}`}
+                  </p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {item.customerId
+                    {item.driverId ? `Driver: ${item.driverId.firstName} ${item.driverId.lastName}` : item.customerId
                       ? `${item.customerId.firstName} ${item.customerId.lastName}`
                       : "No passenger linked"}{" "}
                     • {item.category || "other"} •{" "}
@@ -369,6 +394,7 @@ export function SupportPage() {
                       >
                         {item.escalated ? "Remove escalation" : "Escalate"}
                       </button>
+                      <button className={secondaryButtonClass} onClick={() => { const resolution = window.prompt("Resolution to send back to the requester"); if (resolution?.trim()) void patch(item, { status: "resolved", resolution: resolution.trim() }); }}>Resolve with note</button>
                     </>
                   ) : null}
                 </div>
@@ -382,8 +408,8 @@ export function SupportPage() {
                 ) : null}
               </article>
             ))}
-            {!data.cases.length ? (
-              <p className="text-sm text-slate-500">No open cases.</p>
+            {!cases.length ? (
+              <p className="text-sm text-slate-500">No open cases for this source.</p>
             ) : null}
           </div>
         </section>
