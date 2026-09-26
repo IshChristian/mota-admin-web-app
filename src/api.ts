@@ -10,8 +10,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toLowerCase();
+    if (method && ["post", "put", "patch", "delete"].includes(method) && !response.config.url?.startsWith("/auth/")) {
+      window.dispatchEvent(new CustomEvent("mota:operation", { detail: { kind: "success", message: response.data?.message || "Changes saved successfully." } }));
+    }
+    return response;
+  },
   (error) => {
+    if (["post", "put", "patch", "delete"].includes(error.config?.method?.toLowerCase()) && !error.config?.url?.startsWith("/auth/")) {
+      window.dispatchEvent(new CustomEvent("mota:operation", { detail: { kind: "error", message: error.response?.data?.message || "Operation failed. Please try again." } }));
+    }
     const status = error?.response?.status;
     const onStatusPage = window.location.pathname.startsWith("/status/");
     if (!onStatusPage && status === 403) window.location.assign("/status/403");
