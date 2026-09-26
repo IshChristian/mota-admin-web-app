@@ -48,6 +48,8 @@ type Case = {
   driverId?: Person;
   rideId?: Ride;
   assignedTo?: Person;
+  createdBy?: Person & { role?: string };
+  resolution?: string;
   escalated?: boolean;
   lastPassengerNotificationAt?: string;
   contactHistory?: unknown[];
@@ -324,12 +326,13 @@ export function SupportPage() {
                     {item.description}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {item.customerId
+                    {item.driverId ? `Driver: ${item.driverId.firstName} ${item.driverId.lastName}` : item.customerId
                       ? `${item.customerId.firstName} ${item.customerId.lastName}`
                       : "No passenger linked"}{" "}
                     • {item.category || "other"} •{" "}
                     {item.contactHistory?.length || 0} contacts
                   </p>
+                  {item.createdBy?.role === "agent" ? <p className="mt-1 text-xs text-lime">Requested by agent {item.createdBy.firstName} {item.createdBy.lastName}</p> : null}
                 </button>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {can("call_log:create") ? (
@@ -369,6 +372,7 @@ export function SupportPage() {
                       >
                         {item.escalated ? "Remove escalation" : "Escalate"}
                       </button>
+                      <button className={secondaryButtonClass} onClick={() => { const resolution = window.prompt("Resolution to send back to the requester"); if (resolution?.trim()) void patch(item, { status: "resolved", resolution: resolution.trim() }); }}>Resolve with note</button>
                     </>
                   ) : null}
                 </div>
