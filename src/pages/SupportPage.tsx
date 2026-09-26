@@ -48,7 +48,6 @@ type Case = {
   driverId?: Person;
   rideId?: Ride;
   assignedTo?: Person;
-  createdBy?: Person & { role?: string };
   resolution?: string;
   escalated?: boolean;
   lastPassengerNotificationAt?: string;
@@ -332,7 +331,6 @@ export function SupportPage() {
                     • {item.category || "other"} •{" "}
                     {item.contactHistory?.length || 0} contacts
                   </p>
-                  {item.createdBy?.role === "agent" ? <p className="mt-1 text-xs text-lime">Requested by agent {item.createdBy.firstName} {item.createdBy.lastName}</p> : null}
                 </button>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {can("call_log:create") ? (
