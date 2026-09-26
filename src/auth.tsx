@@ -2,18 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { authApi } from './api';
 import { templates, type StaffRole } from './permissions';
 
-type Staff = { id: string; name: string; role: StaffRole; permissions: string[] };
+type Staff = { id: string; name: string; role: StaffRole | 'moderator'; roleName: string; permissions: string[] };
 type AuthValue = { staff: Staff | null; isLoading: boolean; login: (identifier: string, password: string) => Promise<void>; logout: () => void; can: (permission: string) => boolean };
 const AuthContext = createContext<AuthValue | null>(null);
 const staffRoles = new Set(['superadmin', 'admin', 'financial', 'agent', 'caller_support']);
 
 function fromProfile(profile: any): Staff | null {
-  if (!profile || !staffRoles.has(profile.role)) return null;
+  if (!profile || (!staffRoles.has(profile.role) && !(profile.role === 'moderator' && profile.roleId?.permissions?.includes('admin:access')))) return null;
   const role = profile.role as StaffRole;
   return {
     id: String(profile._id || profile.id),
     name: [profile.firstName, profile.lastName].filter(Boolean).join(' ') || role,
     role,
+    roleName: profile.roleId?.name || role,
     // A stored role record is authoritative, including an intentionally empty permission list.
     permissions: Array.isArray(profile.roleId?.permissions) ? profile.roleId.permissions : templates[role],
   };
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifier: string, password: string) => {
     const result = await authApi.login(identifier, password);
     const { token, user } = result.data;
-    if (!staffRoles.has(user.role)) throw new Error('This account does not have staff dashboard access.');
+    if (!staffRoles.has(user.role) && !(user.role === 'moderator' && user.permissions?.includes('admin:access'))) throw new Error('This account does not have staff dashboard access.');
     sessionStorage.setItem('mota_admin_token', token);
     try {
       const response = await authApi.me();
