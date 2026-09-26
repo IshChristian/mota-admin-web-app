@@ -26,6 +26,22 @@ import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
 import { AdminStatusPage } from './pages/AdminStatusPage';
 import { SafetyDisputesPage } from './pages/SafetyDisputesPage';
+import { useEffect, useState } from 'react';
+
+function OperationFeedback() {
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+  useEffect(() => {
+    const show = (event: Event) => setNotice((event as CustomEvent).detail);
+    window.addEventListener('mota:operation', show);
+    return () => window.removeEventListener('mota:operation', show);
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  return notice ? <div role="status" aria-live="polite" className={`fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border px-5 py-3 shadow-xl ${notice.kind === 'error' ? 'border-red-400 bg-red-950 text-red-100' : 'border-lime bg-slate-900 text-white'}`}>{notice.message}<button type="button" aria-label="Dismiss message" className="ml-4" onClick={() => setNotice(null)}>×</button></div> : null;
+}
 
 function Protected() {
   const { staff } = useAuth();
@@ -67,6 +83,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/status/404" replace />} />
         </Routes>
         <CookieConsent />
+        <OperationFeedback />
         </AuthProvider>
       </BrowserRouter>
     </AppErrorBoundary>
