@@ -44,8 +44,9 @@ function OperationFeedback() {
 }
 
 function Protected() {
-  const { staff } = useAuth();
+  const { staff, isLoading } = useAuth();
   const location = useLocation();
+  if (isLoading) return <div role="status" className="grid min-h-screen place-items-center text-slate-400">Checking staff account…</div>;
   return staff ? <Shell /> : <Navigate to="/login" state={{ from: location.pathname }} replace />;
 }
 
