@@ -81,6 +81,8 @@ export function SupportPage() {
   const [form, setForm] = useState(empty);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [caseBusy, setCaseBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [caseFilter, setCaseFilter] = useState("all");
   const load = useCallback(async () => {
@@ -102,6 +104,8 @@ export function SupportPage() {
   }, [load]);
   const create = async (e: FormEvent) => {
     e.preventDefault();
+    if (caseBusy) return;
+    setCaseBusy(true); setError(""); setSuccess("");
     try {
       await adminApi.createSupportCase({
         ...form,
@@ -109,14 +113,17 @@ export function SupportPage() {
       });
       setOpen(false);
       setForm(empty);
+      setSuccess("Support case opened.");
       await load();
     } catch (err) {
       setError(msg(err));
-    }
+    } finally { setCaseBusy(false); }
   };
   const patch = async (item: Case, changes: Record<string, unknown>) => {
+    setError(""); setSuccess("");
     try {
       await adminApi.updateSupportCase(item._id, changes);
+      setSuccess(`Case ${item.subject} updated.`);
       await load();
     } catch (e) {
       setError(msg(e));
@@ -219,6 +226,7 @@ export function SupportPage() {
         }
       />
       {error ? <ErrorBanner message={error} retry={load} /> : null}
+      {success ? <p role="status" className="mb-4 rounded-xl border border-lime/30 bg-lime/10 p-4 text-sm text-lime">{success}</p> : null}
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         {[
           ["Open cases", data.cases.length],
@@ -395,6 +403,7 @@ export function SupportPage() {
                         {item.escalated ? "Remove escalation" : "Escalate"}
                       </button>
                       <button className={secondaryButtonClass} onClick={() => { const resolution = window.prompt("Resolution to send back to the requester"); if (resolution?.trim()) void patch(item, { status: "resolved", resolution: resolution.trim() }); }}>Resolve with note</button>
+                      <button className={secondaryButtonClass} onClick={() => { const reason = window.prompt("Closing note"); if (reason?.trim()) void patch(item, { status: "closed", resolution: reason.trim() }); }}>Close case</button>
                     </>
                   ) : null}
                 </div>
@@ -505,7 +514,7 @@ export function SupportPage() {
               >
                 Cancel
               </button>
-              <button className={buttonClass}>Create and assign</button>
+              <button disabled={caseBusy} className={buttonClass}>{caseBusy ? "Creating…" : "Create and assign"}</button>
             </div>
           </form>
         </div>
