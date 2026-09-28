@@ -97,6 +97,7 @@ export const adminApi = {
     api.put(`/admin/registrations/${id}/status`, { status, remarks }),
   transactions: (params?: Record<string, unknown>) =>
     api.get("/admin/paypack/transactions", { params }),
+  withdrawals: (status?: string) => api.get("/admin/withdrawals", { params: status ? { status } : {} }),
   syncTransactions: (ref?: string) =>
     api.post("/admin/paypack/sync", ref ? { ref } : {}),
   roles: () => api.get("/roles"),

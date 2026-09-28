@@ -9,6 +9,7 @@ const items = [
   ['/drivers', 'Drivers', Car, 'driver:view'],
   ['/rides', 'Rides', Car, 'ride:view'],
   ['/finance', 'Transactions', CircleDollarSign, 'finance:view'],
+  ['/withdrawals', 'Withdrawals', Landmark, 'finance:view'],
   ['/loans', 'Loans', Landmark, 'loan:view'],
   ['/fines', 'Fines', FileWarning, 'fines:view'],
   ['/registrations', 'Registrations', ShieldCheck, 'registration:view'],
