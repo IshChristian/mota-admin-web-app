@@ -98,6 +98,7 @@ export const adminApi = {
   transactions: (params?: Record<string, unknown>) =>
     api.get("/admin/paypack/transactions", { params }),
   withdrawals: (status?: string) => api.get("/admin/withdrawals", { params: status ? { status } : {} }),
+  reviewWithdrawal: (id: string, reviewStatus: string, reviewNote: string) => api.patch(`/admin/withdrawals/${id}/review`, { reviewStatus, reviewNote }),
   syncTransactions: (ref?: string) =>
     api.post("/admin/paypack/sync", ref ? { ref } : {}),
   roles: () => api.get("/roles"),
