@@ -5,7 +5,11 @@ import { ErrorBanner, PageHeader, RemoteTable, inputClass, secondaryButtonClass 
 
 type Request = { _id: string; driverId?: { _id: string; firstName: string; lastName: string; phone: string }; phone: string; amount: number; fee: number; totalHeld: number; status: string; paypackRef?: string; failureReason?: string; createdAt: string };
 const statuses = ['queued', 'processing', 'provider_pending', 'successful', 'failed'];
-const csvCell = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+const csvCell = (value: unknown) => {
+  const raw = String(value ?? '');
+  const safe = /^[\s]*[=+@\-]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replaceAll('"', '""')}"`;
+};
 
 export function WithdrawalsPage() {
   const [rows, setRows] = useState<Request[]>([]);
