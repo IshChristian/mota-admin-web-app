@@ -26,6 +26,7 @@ import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
 import { AdminStatusPage } from './pages/AdminStatusPage';
 import { SafetyDisputesPage } from './pages/SafetyDisputesPage';
+import { WithdrawalsPage } from './pages/WithdrawalsPage';
 import { useEffect, useState } from 'react';
 
 function OperationFeedback() {
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="rides" element={<RidesPage />} />
             <Route path="finance" element={<FinancePage />} />
+            <Route path="withdrawals" element={<WithdrawalsPage />} />
             <Route path="loans" element={<LoansPage />} />
             <Route path="fines" element={<FinesPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
