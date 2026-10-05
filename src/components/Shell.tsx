@@ -15,6 +15,8 @@ const items = [
   ['/registrations', 'Registrations', ShieldCheck, 'registration:view'],
   ['/kyc', 'KYC review', ShieldCheck, 'kyc:view'],
   ['/roles', 'Staff & roles', Users, 'role:view'],
+  ['/analysis', 'Data analysis', Activity, 'analytics:view'],
+  ['/data-access', 'Data access', ShieldCheck, 'data:access_manage'],
   ['/audit', 'Audit trail', Activity, 'audit:view'],
   ['/support', 'Caller support', Users, 'support:view'],
   ['/safety-disputes', 'Safety & disputes', ShieldCheck, 'support:view'],

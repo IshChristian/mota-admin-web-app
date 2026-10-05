@@ -12,20 +12,49 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     const method = response.config.method?.toLowerCase();
-    if (method && ["post", "put", "patch", "delete"].includes(method) && !response.config.url?.startsWith("/auth/")) {
-      window.dispatchEvent(new CustomEvent("mota:operation", { detail: { kind: "success", message: response.data?.message || "Changes saved successfully." } }));
+    if (
+      method &&
+      ["post", "put", "patch", "delete"].includes(method) &&
+      !response.config.url?.startsWith("/auth/")
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("mota:operation", {
+          detail: {
+            kind: "success",
+            message: response.data?.message || "Changes saved successfully.",
+          },
+        }),
+      );
     }
     return response;
   },
   (error) => {
-    if (["post", "put", "patch", "delete"].includes(error.config?.method?.toLowerCase()) && !error.config?.url?.startsWith("/auth/")) {
-      window.dispatchEvent(new CustomEvent("mota:operation", { detail: { kind: "error", message: error.response?.data?.message || "Operation failed. Please try again." } }));
+    if (
+      ["post", "put", "patch", "delete"].includes(
+        error.config?.method?.toLowerCase(),
+      ) &&
+      !error.config?.url?.startsWith("/auth/")
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("mota:operation", {
+          detail: {
+            kind: "error",
+            message:
+              error.response?.data?.message ||
+              "Operation failed. Please try again.",
+          },
+        }),
+      );
     }
     const status = error?.response?.status;
     const onStatusPage = window.location.pathname.startsWith("/status/");
+    if (error.config?.url?.startsWith("/reports/"))
+      return Promise.reject(error);
     if (!onStatusPage && status === 403) window.location.assign("/status/403");
-    else if (!onStatusPage && status === 503) window.location.assign("/status/maintenance");
-    else if (!onStatusPage && status >= 500) window.location.assign("/status/500");
+    else if (!onStatusPage && status === 503)
+      window.location.assign("/status/maintenance");
+    else if (!onStatusPage && status >= 500)
+      window.location.assign("/status/500");
     return Promise.reject(error);
   },
 );
@@ -97,8 +126,10 @@ export const adminApi = {
     api.put(`/admin/registrations/${id}/status`, { status, remarks }),
   transactions: (params?: Record<string, unknown>) =>
     api.get("/admin/paypack/transactions", { params }),
-  withdrawals: (status?: string) => api.get("/admin/withdrawals", { params: status ? { status } : {} }),
-  reviewWithdrawal: (id: string, reviewStatus: string, reviewNote: string) => api.patch(`/admin/withdrawals/${id}/review`, { reviewStatus, reviewNote }),
+  withdrawals: (status?: string) =>
+    api.get("/admin/withdrawals", { params: status ? { status } : {} }),
+  reviewWithdrawal: (id: string, reviewStatus: string, reviewNote: string) =>
+    api.patch(`/admin/withdrawals/${id}/review`, { reviewStatus, reviewNote }),
   syncTransactions: (ref?: string) =>
     api.post("/admin/paypack/sync", ref ? { ref } : {}),
   roles: () => api.get("/roles"),
@@ -154,12 +185,20 @@ export const adminApi = {
     api.patch(`/admin/support-rides/${rideId}`, data),
   kycRecords: (type: "driver" | "passenger", status?: string) =>
     api.get("/admin/kyc", { params: { type, status } }),
-  reviewKyc: (type: "driver" | "passenger", id: string, status: "approved" | "correction" | "rejected", remarks?: string) =>
-    api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks }),
-  safetyEvents: (status?: string) => api.get('/production/admin/safety-events', { params: { status } }),
-  updateSafetyEvent: (id: string, data: Record<string, unknown>) => api.patch(`/production/admin/safety-events/${id}`, data),
-  rideDisputes: (status?: string) => api.get('/production/admin/disputes', { params: { status } }),
-  updateRideDispute: (id: string, data: Record<string, unknown>) => api.patch(`/production/admin/disputes/${id}`, data),
+  reviewKyc: (
+    type: "driver" | "passenger",
+    id: string,
+    status: "approved" | "correction" | "rejected",
+    remarks?: string,
+  ) => api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks }),
+  safetyEvents: (status?: string) =>
+    api.get("/production/admin/safety-events", { params: { status } }),
+  updateSafetyEvent: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/production/admin/safety-events/${id}`, data),
+  rideDisputes: (status?: string) =>
+    api.get("/production/admin/disputes", { params: { status } }),
+  updateRideDispute: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/production/admin/disputes/${id}`, data),
 };
 export const authApi = {
   login: (identifier: string, password: string) =>
