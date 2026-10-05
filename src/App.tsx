@@ -21,6 +21,8 @@ import {
   UserDetailPage,
   UsersPage,
 } from './pages';
+import { AnalysisPage } from "./pages/AnalysisPage";
+import { DataAccessPage } from "./pages/DataAccessPage";
 import { LoginPage } from './pages/LoginPage';
 import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
@@ -75,6 +77,8 @@ export default function App() {
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="kyc" element={<KycPage />} />
             <Route path="roles" element={<RolesCrudPage />} />
+            <Route path="analysis" element={<AnalysisPage />} />
+            <Route path="data-access" element={<DataAccessPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="support" element={<SupportPage />} />
             <Route path="safety-disputes" element={<SafetyDisputesPage />} />
