@@ -1,3 +1,4 @@
+import { SupportConversation } from "../components/SupportConversation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { adminApi } from "../api";
@@ -88,8 +89,8 @@ export function SupportPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await adminApi.supportOperations();
-      setData(response.data.data);
+      const [response, casesResponse] = await Promise.all([adminApi.supportOperations(), adminApi.supportCases()]);
+      setData({ ...response.data.data, cases: casesResponse.data.data });
       setError("");
     } catch (e) {
       setError(msg(e));
@@ -229,7 +230,7 @@ export function SupportPage() {
       {success ? <p role="status" className="mb-4 rounded-xl border border-lime/30 bg-lime/10 p-4 text-sm text-lime">{success}</p> : null}
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         {[
-          ["Open cases", data.cases.length],
+          ["Active cases", data.cases.filter(item => !["resolved","closed"].includes(item.status)).length],
           ["Agent requests", data.cases.filter((item) => source(item) === "agent").length],
           ["Unassigned rides", unassigned.length],
           ["Active accepted rides", accepted.length],
@@ -418,11 +419,12 @@ export function SupportPage() {
               </article>
             ))}
             {!cases.length ? (
-              <p className="text-sm text-slate-500">No open cases for this source.</p>
+              <p className="text-sm text-slate-500">No cases for this source.</p>
             ) : null}
           </div>
         </section>
       </div>
+      {selected ? <SupportConversation key={selected._id} caseId={selected._id} onChanged={() => void load()} /> : null}
       {open ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
           <form
@@ -448,6 +450,7 @@ export function SupportPage() {
                 }
               >
                 {[
+                  "account_kyc", "upload", "availability", "withdrawal", "fuel", "technical", "lost_item", "safety",
                   "ride_assignment",
                   "acceptance_notification",
                   "driver_arrival",

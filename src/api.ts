@@ -159,6 +159,8 @@ export const adminApi = {
   rejectFine: (id: string, reason: string) =>
     api.put(`/fine-requests/${id}/reject`, { reason }),
   reviewFine: (id: string) => api.put(`/fine-requests/${id}/review`),
+  supportCaseDetails: (id: string) => api.get(`/admin/support-cases/${id}`),
+  replySupportCase: (id: string, data: {text:string;internal:boolean;status?:string}) => api.post(`/admin/support-cases/${id}/messages`, data),
   supportCases: () => api.get("/admin/support-cases"),
   createSupportCase: (data: Record<string, unknown>) =>
     api.post("/admin/support-cases", data),
