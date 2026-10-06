@@ -48,7 +48,11 @@ api.interceptors.response.use(
     }
     const status = error?.response?.status;
     const onStatusPage = window.location.pathname.startsWith("/status/");
-    if (error.config?.url?.startsWith("/reports/"))
+    if (
+      ["/reports/", "/notifications", "/admin/support"].some((path) =>
+        error.config?.url?.startsWith(path),
+      )
+    )
       return Promise.reject(error);
     if (!onStatusPage && status === 403) window.location.assign("/status/403");
     else if (!onStatusPage && status === 503)
@@ -159,7 +163,14 @@ export const adminApi = {
   rejectFine: (id: string, reason: string) =>
     api.put(`/fine-requests/${id}/reject`, { reason }),
   reviewFine: (id: string) => api.put(`/fine-requests/${id}/review`),
-  supportCases: () => api.get("/admin/support-cases"),
+  supportCaseDetails: (id: string) => api.get(`/admin/support-cases/${id}`),
+  replySupportCase: (
+    id: string,
+    data: { text: string; internal: boolean; status?: string },
+  ) => api.post(`/admin/support-cases/${id}/messages`, data),
+  supportCases: (params?: Record<string, unknown>) =>
+    api.get("/admin/support-cases", { params }),
+  supportSummary: () => api.get("/admin/support-summary"),
   createSupportCase: (data: Record<string, unknown>) =>
     api.post("/admin/support-cases", data),
   updateSupportCase: (id: string, data: Record<string, unknown>) =>
@@ -205,4 +216,14 @@ export const authApi = {
     api.post("/auth/login", { identifier, password }),
   me: () => api.get("/users/me"),
   updateMe: (data: Record<string, unknown>) => api.put("/users/me", data),
+};
+
+export const notificationsApi = {
+  list: (page = 1, unread = false) =>
+    api.get(unread ? "/notifications/unread" : "/notifications", {
+      params: { page, limit: 20 },
+    }),
+  unread: (signal?: AbortSignal) =>
+    api.get("/notifications/unread", { params: { limit: 1 }, signal }),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
 };

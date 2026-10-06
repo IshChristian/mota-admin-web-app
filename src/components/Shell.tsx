@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Activity, Bell, Car, CircleDollarSign, FileWarning, HelpCircle, Info, Landmark, LayoutDashboard, LogOut, Map, Menu, Search, Settings, ShieldCheck, UserCircle, Users, WifiOff, X } from 'lucide-react';
+import { Activity, Car, CircleDollarSign, FileWarning, HelpCircle, Info, Landmark, LayoutDashboard, LogOut, Map, Menu, Search, Settings, ShieldCheck, UserCircle, Users, WifiOff, X } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../auth';
 
 const items = [
@@ -53,7 +54,7 @@ export function Shell() {
       <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 p-4"><NavLink to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-3"><UserCircle size={28}/><span className="min-w-0"><b className="block truncate text-sm">{staff?.name}</b><small className="capitalize text-slate-500">{staff?.role.replace('_',' ')}</small></span></NavLink><button onClick={logout} className="mt-3 flex items-center gap-2 text-xs text-slate-400 hover:text-white"><LogOut size={14}/>Log out</button></div>
     </aside>
     <main className="lg:pl-72">
-      <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-white/10 bg-ink/80 px-5 backdrop-blur-xl md:px-8"><button aria-label="Open navigation" className="lg:hidden" onClick={() => setOpen(true)}><Menu/></button><div><h1 className="text-xl font-semibold">{title}</h1><p className="hidden text-xs text-slate-500 sm:block">Live operations and access control</p></div><Link aria-label="Search" to="/info/search" className="ml-auto rounded-xl border border-white/10 p-2.5"><Search size={18}/></Link><button aria-label="Notifications" className="rounded-xl border border-white/10 p-2.5"><Bell size={18}/></button></header>
+      <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-white/10 bg-ink/80 px-5 backdrop-blur-xl md:px-8"><button aria-label="Open navigation" className="lg:hidden" onClick={() => setOpen(true)}><Menu/></button><div><h1 className="text-xl font-semibold">{title}</h1><p className="hidden text-xs text-slate-500 sm:block">Live operations and access control</p></div><Link aria-label="Search" to="/info/search" className="ml-auto rounded-xl border border-white/10 p-2.5"><Search size={18}/></Link><NotificationBell/></header>
       <div className="p-5 md:p-8"><Outlet/></div>
       <footer className="border-t border-white/10 px-5 py-6 text-center text-xs text-slate-600"><Link to="/info/privacy" className="hover:text-slate-300">Privacy</Link><span className="mx-3">•</span><Link to="/info/terms" className="hover:text-slate-300">Terms</Link><span className="mx-3">•</span><Link to="/info/contact" className="hover:text-slate-300">Contact</Link></footer>
     </main>
