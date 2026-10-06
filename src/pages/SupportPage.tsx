@@ -1,5 +1,7 @@
+import { useActionDialog } from "../components/ActionDialog";
+import { useSearchParams } from "react-router-dom";
 import { SupportConversation } from "../components/SupportConversation";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { adminApi } from "../api";
 import { useAuth } from "../auth";
@@ -55,6 +57,8 @@ type Case = {
   escalated?: boolean;
   lastPassengerNotificationAt?: string;
   contactHistory?: unknown[];
+  contactCount?: number;
+  responseDueAt?: string;
 };
 type Operations = { cases: Case[]; rides: Ride[]; drivers: Person[] };
 const empty = {
@@ -73,6 +77,7 @@ const msg = (e: unknown) =>
     : "Unexpected error";
 export function SupportPage() {
   const { staff, can } = useAuth();
+  const { ask, dialog } = useActionDialog();
   const [data, setData] = useState<Operations>({
     cases: [],
     rides: [],
@@ -86,27 +91,71 @@ export function SupportPage() {
   const [caseBusy, setCaseBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [caseFilter, setCaseFilter] = useState("all");
+  const [queue, setQueue] = useState("all"),
+    [page, setPage] = useState(1),
+    [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<{
+    active: number;
+    overdue: number;
+    urgent: number;
+    waiting: number;
+  } | null>(null);
+  const [params] = useSearchParams();
+  const caseId = params.get("caseId");
+  const generation = useRef(0);
+  useEffect(() => {
+    if (!caseId) return;
+    if (!/^[a-f0-9]{24}$/i.test(caseId)) {
+      setError("Invalid support case reference.");
+      return;
+    }
+    let active = true;
+    adminApi
+      .supportCaseDetails(caseId)
+      .then((response) => {
+        if (active) setSelected(response.data.data);
+      })
+      .catch((error) => {
+        if (active) setError(msg(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [caseId]);
   const load = useCallback(async () => {
+    const request = ++generation.current;
     setLoading(true);
     try {
-      const [response, casesResponse] = await Promise.all([adminApi.supportOperations(), adminApi.supportCases()]);
+      const [response, casesResponse, summaryResponse] = await Promise.all([
+        adminApi.supportOperations(),
+        adminApi.supportCases({ queue, page, limit: 50 }),
+        adminApi.supportSummary(),
+      ]);
+      if (request !== generation.current) return;
+      setSummary(summaryResponse.data.data);
+      setTotal(casesResponse.data.total);
       setData({ ...response.data.data, cases: casesResponse.data.data });
       setError("");
     } catch (e) {
-      setError(msg(e));
+      if (request === generation.current) setError(msg(e));
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
-  }, []);
+  }, [queue, page]);
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), 20000);
-    return () => window.clearInterval(timer);
+    return () => {
+      generation.current++;
+      window.clearInterval(timer);
+    };
   }, [load]);
   const create = async (e: FormEvent) => {
     e.preventDefault();
     if (caseBusy) return;
-    setCaseBusy(true); setError(""); setSuccess("");
+    setCaseBusy(true);
+    setError("");
+    setSuccess("");
     try {
       await adminApi.createSupportCase({
         ...form,
@@ -118,10 +167,13 @@ export function SupportPage() {
       await load();
     } catch (err) {
       setError(msg(err));
-    } finally { setCaseBusy(false); }
+    } finally {
+      setCaseBusy(false);
+    }
   };
   const patch = async (item: Case, changes: Record<string, unknown>) => {
-    setError(""); setSuccess("");
+    setError("");
+    setSuccess("");
     try {
       await adminApi.updateSupportCase(item._id, changes);
       setSuccess(`Case ${item.subject} updated.`);
@@ -131,78 +183,237 @@ export function SupportPage() {
     }
   };
   const logContact = async (item: Case) => {
-    const note = window.prompt("Contact note");
-    if (!note) return;
-    const channel =
-      window.prompt("Channel: call, sms, email, push, in_app", "call") ||
-      "call";
-    const outcome =
-      window.prompt(
-        "Outcome: answered, no_answer, sent, failed, callback_requested, resolved",
-        "answered",
-      ) || "answered";
+    const result = await ask({
+      title: "Record contact attempt",
+      fields: [
+        { name: "note", label: "Contact note", maxLength: 1000 },
+        {
+          name: "channel",
+          label: "Channel",
+          value: "call",
+          options: ["call", "sms", "email", "push", "in_app"].map((value) => ({
+            value,
+            label: value.replaceAll("_", " "),
+          })),
+        },
+        {
+          name: "outcome",
+          label: "Outcome",
+          value: "answered",
+          options: [
+            "answered",
+            "no_answer",
+            "sent",
+            "failed",
+            "callback_requested",
+            "resolved",
+          ].map((value) => ({ value, label: value.replaceAll("_", " ") })),
+        },
+      ],
+      confirm: "Save contact",
+    });
+    if (!result) return;
     try {
       await adminApi.logSupportContact(item._id, {
-        channel,
-        outcome,
+        ...result,
         direction: "outbound",
-        note,
       });
       await load();
-    } catch (e) {
-      setError(msg(e));
+    } catch (error) {
+      setError(msg(error));
     }
   };
   const notify = async (item: Case) => {
     if (
-      !window.confirm(
-        "Resend this ride update by in-app, SMS, email and push where configured?",
-      )
+      !(await ask({
+        title: "Resend ride update",
+        description:
+          "Send this ride update through in-app, SMS, email and push where configured?",
+        confirm: "Send update",
+      }))
     )
       return;
     try {
       await adminApi.notifySupportPassenger(item._id);
       await load();
-    } catch (e) {
-      setError(msg(e));
+    } catch (error) {
+      setError(msg(error));
     }
   };
   const assign = async (ride: Ride) => {
-    const driverId = window.prompt(
-      `Available driver ID:\n${data.drivers.map((d) => `${d.firstName} ${d.lastName}: ${d._id}`).join("\n")}`,
-    );
-    if (!driverId) return;
+    const result = await ask({
+      title: "Assign an available driver",
+      fields: [
+        {
+          name: "driverId",
+          label: "Driver",
+          options: data.drivers.map((driver) => ({
+            value: driver._id,
+            label: `${driver.firstName} ${driver.lastName} · ${driver.phone || driver._id}`,
+          })),
+        },
+      ],
+      confirm: "Assign driver",
+    });
+    if (!result) return;
     try {
-      await adminApi.assignSupportRide(ride._id, driverId, selected?._id);
+      await adminApi.assignSupportRide(
+        ride._id,
+        result.driverId,
+        selected?._id,
+      );
       await load();
-    } catch (e) {
-      setError(msg(e));
+    } catch (error) {
+      setError(msg(error));
     }
   };
   const createRide = async () => {
-    const passengerId = window.prompt("Passenger account ID");
-    if (!passengerId) return;
-    const pickupLat = Number(window.prompt("Pickup latitude", "-1.9441"));
-    const pickupLng = Number(window.prompt("Pickup longitude", "30.0619"));
-    const destinationLat = Number(window.prompt("Destination latitude", "-1.9536"));
-    const destinationLng = Number(window.prompt("Destination longitude", "30.0606"));
-    const offeredFare = Number(window.prompt("Offered fare (RWF)", "3000"));
+    const result = await ask({
+      title: "Create passenger ride request",
+      description:
+        "Confirm the passenger and exact pickup/destination coordinates before requesting a ride.",
+      fields: [
+        {
+          name: "passengerId",
+          label: "Passenger account ID",
+          pattern: "[a-fA-F0-9]{24}",
+          maxLength: 24,
+        },
+        {
+          name: "pickupLat",
+          label: "Pickup latitude",
+          type: "number",
+          min: -90,
+          max: 90,
+        },
+        {
+          name: "pickupLng",
+          label: "Pickup longitude",
+          type: "number",
+          min: -180,
+          max: 180,
+        },
+        {
+          name: "destinationLat",
+          label: "Destination latitude",
+          type: "number",
+          min: -90,
+          max: 90,
+        },
+        {
+          name: "destinationLng",
+          label: "Destination longitude",
+          type: "number",
+          min: -180,
+          max: 180,
+        },
+        {
+          name: "offeredFare",
+          label: "Agreed fare (RWF)",
+          type: "number",
+          min: 1,
+        },
+      ],
+      confirm: "Create ride",
+    });
+    if (!result) return;
     try {
-      await adminApi.createSupportRide({ passengerId, pickup: { latitude: pickupLat, longitude: pickupLng, name: "Caller-provided pickup" }, destination: { latitude: destinationLat, longitude: destinationLng, name: "Caller-provided destination" }, offeredFare, paymentMethod: "cash" });
+      await adminApi.createSupportRide({
+        passengerId: result.passengerId,
+        pickup: {
+          latitude: Number(result.pickupLat),
+          longitude: Number(result.pickupLng),
+          name: "Caller-provided pickup",
+        },
+        destination: {
+          latitude: Number(result.destinationLat),
+          longitude: Number(result.destinationLng),
+          name: "Caller-provided destination",
+        },
+        offeredFare: Number(result.offeredFare),
+        paymentMethod: "cash",
+      });
       await load();
-    } catch (e) { setError(msg(e)); }
+    } catch (error) {
+      setError(msg(error));
+    }
   };
   const updateRide = async (ride: Ride) => {
-    const rideStatus = window.prompt("Ride status", ride.rideStatus);
-    if (!rideStatus) return;
-    const fare = Number(window.prompt("Fare (RWF)", String(ride.fare || ride.offeredFare || 0)));
-    try { await adminApi.updateSupportRide(ride._id, { rideStatus, fare, offeredFare: fare }); await load(); }
-    catch (e) { setError(msg(e)); }
+    const result = await ask({
+      title: "Update ride",
+      fields: [
+        {
+          name: "rideStatus",
+          label: "Ride status",
+          value: ride.rideStatus,
+          options: [
+            "requested",
+            "searching",
+            "accepted",
+            "approaching",
+            "arrived",
+            "start_requested",
+            "in_progress",
+            "stop_requested",
+            "awaiting_payment",
+            "completed",
+            "cancelled",
+            "expired",
+          ].map((value) => ({ value, label: value.replaceAll("_", " ") })),
+        },
+        {
+          name: "fare",
+          label: "Fare (RWF)",
+          value: String(ride.fare || ride.offeredFare || 0),
+          type: "number",
+          min: 0,
+        },
+      ],
+      confirm: "Save ride",
+    });
+    if (!result) return;
+    try {
+      await adminApi.updateSupportRide(ride._id, {
+        rideStatus: result.rideStatus,
+        fare: Number(result.fare),
+        offeredFare: Number(result.fare),
+      });
+      await load();
+    } catch (error) {
+      setError(msg(error));
+    }
+  };
+  const finishCase = async (item: Case, status: "resolved" | "closed") => {
+    const result = await ask({
+      title:
+        status === "resolved" ? "Resolve support case" : "Close support case",
+      description: "This note is sent to the requester as a public reply.",
+      fields: [{ name: "text", label: "Resolution note", maxLength: 4000 }],
+      confirm: status === "resolved" ? "Resolve case" : "Close case",
+    });
+    if (!result) return;
+    try {
+      await adminApi.replySupportCase(item._id, {
+        text: result.text,
+        internal: false,
+        status,
+      });
+      await load();
+    } catch (error) {
+      setError(msg(error));
+    }
   };
   const trackRide = (ride: Ride) => {
     const location = ride.driverId?.lastLocation || ride.pickup;
-    if (location?.latitude == null || location.longitude == null) { setError("No live GPS location is available for this ride."); return; }
-    window.open(`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=16/${location.latitude}/${location.longitude}`, "_blank", "noopener,noreferrer");
+    if (location?.latitude == null || location.longitude == null) {
+      setError("No live GPS location is available for this ride.");
+      return;
+    }
+    window.open(
+      `https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=16/${location.latitude}/${location.longitude}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
   const unassigned = data.rides.filter((ride) =>
     ["requested", "searching"].includes(ride.rideStatus),
@@ -210,28 +421,55 @@ export function SupportPage() {
   const accepted = data.rides.filter(
     (ride) => !["requested", "searching"].includes(ride.rideStatus),
   );
-  const source = (item: Case) => item.createdBy?.role || "unknown";
-  const cases = data.cases.filter((item) => caseFilter === "all" || source(item) === caseFilter);
+  const source = (item: Case) =>
+    item.createdBy?.role === "passenger"
+      ? "client"
+      : item.createdBy?.role || "unknown";
+  const cases = data.cases.filter(
+    (item) => caseFilter === "all" || source(item) === caseFilter,
+  );
   return (
     <section>
+      {dialog}
       <PageHeader
         title="Call-center ride operations"
         description="Coordinate passengers and drivers, recover missed notifications, record contact attempts, assign cases, and escalate ride problems."
         action={
           can("support:update") ? (
             <div className="flex flex-wrap gap-2">
-              <button className={secondaryButtonClass} onClick={() => void createRide()}>Create ride request</button>
-              <button className={buttonClass} onClick={() => setOpen(true)}>Open support case</button>
+              <button
+                disabled={!can("ride:manage")}
+                className={secondaryButtonClass}
+                onClick={() => void createRide()}
+              >
+                Create ride request
+              </button>
+              <button className={buttonClass} onClick={() => setOpen(true)}>
+                Open support case
+              </button>
             </div>
           ) : undefined
         }
       />
       {error ? <ErrorBanner message={error} retry={load} /> : null}
-      {success ? <p role="status" className="mb-4 rounded-xl border border-lime/30 bg-lime/10 p-4 text-sm text-lime">{success}</p> : null}
+      {success ? (
+        <p
+          role="status"
+          className="mb-4 rounded-xl border border-lime/30 bg-lime/10 p-4 text-sm text-lime"
+        >
+          {success}
+        </p>
+      ) : null}
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         {[
-          ["Active cases", data.cases.filter(item => !["resolved","closed"].includes(item.status)).length],
-          ["Agent requests", data.cases.filter((item) => source(item) === "agent").length],
+          ["Active cases", summary?.active ?? "—"],
+          ["Overdue responses", summary?.overdue ?? "—"],
+          ["Urgent cases", summary?.urgent ?? "—"],
+          ["Waiting on user", summary?.waiting ?? "—"],
+          [
+            "Agent requests (this page)",
+            data.cases.filter((item) => source(item) === "agent").length,
+          ],
           ["Unassigned rides", unassigned.length],
           ["Active accepted rides", accepted.length],
           ["Available drivers", data.drivers.length],
@@ -293,16 +531,98 @@ export function SupportPage() {
                       Fare: {ride.fare || ride.offeredFare || "—"} RWF
                     </span>
                   </div>
-                  {["requested", "searching"].includes(ride.rideStatus) && can("ride:manage") ? <label className="mt-3 block text-xs text-slate-400">Assign nearby driver<select aria-label="Assign nearby driver" className={`${inputClass} mt-1`} defaultValue="" onChange={async e=>{if(!e.target.value)return;try{await adminApi.assignSupportRide(ride._id,e.target.value,selected?._id);await load()}catch(error){setError(msg(error))}}}><option value="">Select available driver</option>{data.drivers.map(driver=><option className="bg-ink" key={driver._id} value={driver._id}>{driver.firstName} {driver.lastName}{driver.lastLocationAt?' · GPS active':''}</option>)}</select></label> : null}
+                  {["requested", "searching"].includes(ride.rideStatus) &&
+                  can("ride:manage") ? (
+                    <label className="mt-3 block text-xs text-slate-400">
+                      Assign nearby driver
+                      <select
+                        aria-label="Assign nearby driver"
+                        className={`${inputClass} mt-1`}
+                        defaultValue=""
+                        onChange={async (e) => {
+                          if (!e.target.value) return;
+                          try {
+                            await adminApi.assignSupportRide(
+                              ride._id,
+                              e.target.value,
+                              selected?._id,
+                            );
+                            await load();
+                          } catch (error) {
+                            setError(msg(error));
+                          }
+                        }}
+                      >
+                        <option value="">Select available driver</option>
+                        {data.drivers.map((driver) => (
+                          <option
+                            className="bg-ink"
+                            key={driver._id}
+                            value={driver._id}
+                          >
+                            {driver.firstName} {driver.lastName}
+                            {driver.lastLocationAt ? " · GPS active" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   {can("ride:manage") ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <select aria-label="Update ride status" className={inputClass} value={ride.rideStatus} onChange={async e=>{try{await adminApi.updateSupportRide(ride._id,{rideStatus:e.target.value});await load()}catch(error){setError(msg(error))}}}>{['requested','searching','approaching','arrived','start_requested','in_progress','stop_requested','awaiting_payment','completed','cancelled','expired'].map(status=><option className="bg-ink" key={status} value={status}>{status.replaceAll('_',' ')}</option>)}</select>
-                      <button className={secondaryButtonClass} onClick={() => trackRide(ride)}>Track live GPS</button>
+                      <select
+                        aria-label="Update ride status"
+                        className={inputClass}
+                        value={ride.rideStatus}
+                        onChange={async (e) => {
+                          try {
+                            await adminApi.updateSupportRide(ride._id, {
+                              rideStatus: e.target.value,
+                            });
+                            await load();
+                          } catch (error) {
+                            setError(msg(error));
+                          }
+                        }}
+                      >
+                        {[
+                          "requested",
+                          "searching",
+                          "approaching",
+                          "arrived",
+                          "start_requested",
+                          "in_progress",
+                          "stop_requested",
+                          "awaiting_payment",
+                          "completed",
+                          "cancelled",
+                          "expired",
+                        ].map((status) => (
+                          <option
+                            className="bg-ink"
+                            key={status}
+                            value={status}
+                          >
+                            {status.replaceAll("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() => trackRide(ride)}
+                      >
+                        Track live GPS
+                      </button>
                     </div>
                   ) : null}
                   {ride.driverId?.lastLocation ? (
                     <p className="mt-2 text-xs text-slate-500">
-                      Driver GPS: {ride.driverId.lastLocation.latitude}, {ride.driverId.lastLocation.longitude} • {ride.driverId.lastLocationAt ? new Date(ride.driverId.lastLocationAt).toLocaleString() : "live"}
+                      Driver GPS: {ride.driverId.lastLocation.latitude},{" "}
+                      {ride.driverId.lastLocation.longitude} •{" "}
+                      {ride.driverId.lastLocationAt
+                        ? new Date(
+                            ride.driverId.lastLocationAt,
+                          ).toLocaleString()
+                        : "live"}
                     </p>
                   ) : null}
                 </article>
@@ -318,10 +638,36 @@ export function SupportPage() {
         <section className="rounded-2xl border border-white/10 bg-panel p-5">
           <h2 className="font-semibold">Support cases</h2>
           <p className="mb-4 text-sm text-slate-500">
-            Review requests from agents, passengers, drivers, and staff. Select a case before assigning its linked ride.
+            Review requests from agents, passengers, drivers, and staff. Select
+            a case before assigning its linked ride.
           </p>
-          <label className="mb-4 block text-sm text-slate-400">Request source
-            <select className={`${inputClass} mt-1`} value={caseFilter} onChange={(event) => setCaseFilter(event.target.value)}>
+          <div className="mb-4 flex flex-wrap gap-2" aria-label="Support queue">
+            {[
+              ["all", "All cases"],
+              ["active", "Active"],
+              ["overdue", "Overdue responses"],
+              ["urgent", "Urgent"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                aria-pressed={queue === value}
+                className={queue === value ? buttonClass : secondaryButtonClass}
+                onClick={() => {
+                  setQueue(value);
+                  setPage(1);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="mb-4 block text-sm text-slate-400">
+            Request source (this page)
+            <select
+              className={`${inputClass} mt-1`}
+              value={caseFilter}
+              onChange={(event) => setCaseFilter(event.target.value)}
+            >
               <option value="all">All sources</option>
               <option value="agent">Agents</option>
               <option value="driver">Drivers</option>
@@ -351,18 +697,35 @@ export function SupportPage() {
                   <p className="mt-1 text-sm text-slate-400">
                     {item.description}
                   </p>
+                  {item.responseDueAt &&
+                  !["resolved", "closed"].includes(item.status) ? (
+                    <p
+                      className={`mt-2 text-xs ${new Date(item.responseDueAt).getTime() <= Date.now() ? "text-red-400" : "text-slate-400"}`}
+                    >
+                      Response target:{" "}
+                      {new Date(item.responseDueAt).toLocaleString()} (estimate)
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-lime">
-                    From {source(item)}: {item.createdBy ? `${item.createdBy.firstName} ${item.createdBy.lastName}` : "Account unavailable"}
+                    From {source(item)}:{" "}
+                    {item.createdBy
+                      ? `${item.createdBy.firstName} ${item.createdBy.lastName}`
+                      : "Account unavailable"}
                     {item.createdBy?.phone ? ` · ${item.createdBy.phone}` : ""}
-                    {item.createdAt ? ` · ${new Date(item.createdAt).toLocaleString()}` : ""}
+                    {item.createdAt
+                      ? ` · ${new Date(item.createdAt).toLocaleString()}`
+                      : ""}
                     {` · ${item.status.replaceAll("_", " ")}`}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {item.driverId ? `Driver: ${item.driverId.firstName} ${item.driverId.lastName}` : item.customerId
-                      ? `${item.customerId.firstName} ${item.customerId.lastName}`
-                      : "No passenger linked"}{" "}
+                    {item.driverId
+                      ? `Driver: ${item.driverId.firstName} ${item.driverId.lastName}`
+                      : item.customerId
+                        ? `${item.customerId.firstName} ${item.customerId.lastName}`
+                        : "No passenger linked"}{" "}
                     • {item.category || "other"} •{" "}
-                    {item.contactHistory?.length || 0} contacts
+                    {item.contactCount ?? item.contactHistory?.length ?? 0}{" "}
+                    contacts
                   </p>
                 </button>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -403,8 +766,18 @@ export function SupportPage() {
                       >
                         {item.escalated ? "Remove escalation" : "Escalate"}
                       </button>
-                      <button className={secondaryButtonClass} onClick={() => { const resolution = window.prompt("Resolution to send back to the requester"); if (resolution?.trim()) void patch(item, { status: "resolved", resolution: resolution.trim() }); }}>Resolve with note</button>
-                      <button className={secondaryButtonClass} onClick={() => { const reason = window.prompt("Closing note"); if (reason?.trim()) void patch(item, { status: "closed", resolution: reason.trim() }); }}>Close case</button>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() => void finishCase(item, "resolved")}
+                      >
+                        Resolve with note
+                      </button>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() => void finishCase(item, "closed")}
+                      >
+                        Close case
+                      </button>
                     </>
                   ) : null}
                 </div>
@@ -419,12 +792,40 @@ export function SupportPage() {
               </article>
             ))}
             {!cases.length ? (
-              <p className="text-sm text-slate-500">No cases for this source.</p>
+              <p className="text-sm text-slate-500">
+                No cases for this source.
+              </p>
             ) : null}
           </div>
         </section>
       </div>
-      {selected ? <SupportConversation key={selected._id} caseId={selected._id} onChanged={() => void load()} /> : null}
+      <div className="my-4 flex flex-wrap items-center gap-3">
+        <button
+          className={secondaryButtonClass}
+          disabled={loading || page <= 1}
+          onClick={() => setPage(page - 1)}
+        >
+          Previous cases
+        </button>
+        <span className="text-sm text-slate-400">
+          Page {page} of {Math.max(1, Math.ceil(total / 50))} · {total} cases in
+          this queue
+        </span>
+        <button
+          className={secondaryButtonClass}
+          disabled={loading || page * 50 >= total}
+          onClick={() => setPage(page + 1)}
+        >
+          Next cases
+        </button>
+      </div>
+      {selected ? (
+        <SupportConversation
+          key={selected._id}
+          caseId={selected._id}
+          onChanged={() => void load()}
+        />
+      ) : null}
       {open ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
           <form
@@ -450,7 +851,14 @@ export function SupportPage() {
                 }
               >
                 {[
-                  "account_kyc", "upload", "availability", "withdrawal", "fuel", "technical", "lost_item", "safety",
+                  "account_kyc",
+                  "upload",
+                  "availability",
+                  "withdrawal",
+                  "fuel",
+                  "technical",
+                  "lost_item",
+                  "safety",
                   "ride_assignment",
                   "acceptance_notification",
                   "driver_arrival",
@@ -517,7 +925,9 @@ export function SupportPage() {
               >
                 Cancel
               </button>
-              <button disabled={caseBusy} className={buttonClass}>{caseBusy ? "Creating…" : "Create and assign"}</button>
+              <button disabled={caseBusy} className={buttonClass}>
+                {caseBusy ? "Creating…" : "Create and assign"}
+              </button>
             </div>
           </form>
         </div>

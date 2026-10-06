@@ -28,6 +28,7 @@ import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
 import { AdminStatusPage } from './pages/AdminStatusPage';
 import { SafetyDisputesPage } from './pages/SafetyDisputesPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { WithdrawalsPage } from './pages/WithdrawalsPage';
 import { useEffect, useState } from 'react';
 
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="analysis" element={<AnalysisPage />} />
             <Route path="data-access" element={<DataAccessPage />} />
             <Route path="audit" element={<AuditPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
             <Route path="support" element={<SupportPage />} />
             <Route path="safety-disputes" element={<SafetyDisputesPage />} />
             <Route path="operations-map" element={<OperationsMapPage />} />
