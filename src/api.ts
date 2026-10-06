@@ -47,18 +47,10 @@ api.interceptors.response.use(
       );
     }
     const status = error?.response?.status;
-    const onStatusPage = window.location.pathname.startsWith("/status/");
-    if (
-      ["/reports/", "/notifications", "/admin/support"].some((path) =>
-        error.config?.url?.startsWith(path),
-      )
-    )
-      return Promise.reject(error);
-    if (!onStatusPage && status === 403) window.location.assign("/status/403");
-    else if (!onStatusPage && status === 503)
-      window.location.assign("/status/maintenance");
-    else if (!onStatusPage && status >= 500)
-      window.location.assign("/status/500");
+    // A failed request belongs to its page; it must not discard an editing session.
+    if (status === 401 && error.config?.headers?.Authorization === `Bearer ${sessionStorage.getItem("mota_admin_token")}`) {
+      window.dispatchEvent(new Event("mota:session-expired"));
+    }
     return Promise.reject(error);
   },
 );
