@@ -6,6 +6,8 @@ type Message = {
   text: string;
   authorType: string;
   internal?: boolean;
+  notificationPending?: boolean;
+  notificationRecordedAt?: string;
   createdAt: string;
 };
 type Case = {
@@ -29,26 +31,47 @@ export function SupportConversation({
     [status, setStatus] = useState("in_progress"),
     [internal, setInternal] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const lock = useRef(false);
+    [error, setError] = useState(""),
+    [fetchError, setFetchError] = useState("");
+  const statusDirty = useRef(false);
+  const lock = useRef(false),
+    generation = useRef(0),
+    mounted = useRef(false);
   useEffect(() => {
-    let active = true;
+    let active = true,
+      initial = true;
+    mounted.current = true;
     setItem(null);
     setText("");
     setError("");
-    adminApi
-      .supportCaseDetails(caseId)
-      .then((res) => {
-        if (active) {
+    setFetchError("");
+    statusDirty.current = false;
+    const load = () => {
+      if (document.visibilityState === "hidden" || lock.current) return;
+      const request = ++generation.current;
+      adminApi
+        .supportCaseDetails(caseId)
+        .then((res) => {
+          if (!active || request !== generation.current) return;
           setItem(res.data.data);
-          setStatus(res.data.data.status);
-        }
-      })
-      .catch(() => {
-        if (active) setError("Could not load the support conversation.");
-      });
+          setFetchError("");
+          if (initial || !statusDirty.current) {
+            setStatus(res.data.data.status);
+            initial = false;
+          }
+        })
+        .catch(() => {
+          if (active && request === generation.current)
+            setFetchError("Could not refresh the support conversation.");
+        });
+    };
+    load();
+    const timer = window.setInterval(load, 15000);
     return () => {
       active = false;
+      mounted.current = false;
+      generation.current++;
+      clearInterval(timer);
     };
   }, [caseId]);
   const submit = async () => {
@@ -62,24 +85,30 @@ export function SupportConversation({
         internal,
         ...(!internal ? { status } : {}),
       });
-      setItem(res.data.data);
-      setText("");
-      onChanged();
+      if (mounted.current) {
+        generation.current++;
+        setItem(res.data.data);
+        statusDirty.current = false;
+        setStatus(res.data.data.status);
+        setText("");
+        onChanged();
+      }
     } catch {
-      setError(
-        "Could not save this reply. Check your connection and permission, then retry.",
-      );
+      if (mounted.current)
+        setError(
+          "Could not save this reply. Check your connection and permission, then retry.",
+        );
     } finally {
       lock.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
   return (
     <section className="my-5 rounded-2xl border border-white/10 bg-panel p-5">
       <h3 className="text-lg font-semibold">Support conversation</h3>
-      {error && (
+      {(error || fetchError) && (
         <p role="alert" className="mt-3 text-red-400">
-          {error}
+          {error || fetchError}
         </p>
       )}
       {item ? (
@@ -115,6 +144,16 @@ export function SupportConversation({
                 <p className="mt-2 whitespace-pre-wrap break-words">
                   {message.text}
                 </p>
+                {message.authorType === "staff" &&
+                !message.internal &&
+                (message.notificationPending ||
+                  message.notificationRecordedAt) ? (
+                  <p className="mt-2 text-xs text-slate-400">
+                    {message.notificationPending
+                      ? "Inbox update queued — automatic retry is enabled."
+                      : "Inbox update recorded."}
+                  </p>
+                ) : null}
               </article>
             ))}
           </div>
@@ -149,7 +188,10 @@ export function SupportConversation({
                 <select
                   disabled={internal}
                   value={status}
-                  onChange={(event) => setStatus(event.target.value)}
+                  onChange={(event) => {
+                    statusDirty.current = true;
+                    setStatus(event.target.value);
+                  }}
                   className={`${inputClass} ml-3`}
                 >
                   {[
