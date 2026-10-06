@@ -33,6 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem("mota_admin_staff");
     setStaff(null);
   }, []);
+  useEffect(() => {
+    window.addEventListener("mota:session-expired", logout);
+    return () => window.removeEventListener("mota:session-expired", logout);
+  }, [logout]);
   const refresh = useCallback(async () => {
     const token = sessionStorage.getItem("mota_admin_token");
     if (!token) return;
