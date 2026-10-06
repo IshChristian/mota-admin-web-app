@@ -128,6 +128,8 @@ export const adminApi = {
     api.patch(`/admin/withdrawals/${id}/review`, { reviewStatus, reviewNote }),
   syncTransactions: (ref?: string) =>
     api.post("/admin/paypack/sync", ref ? { ref } : {}),
+  permissionCatalog: () => api.get("/roles/permissions"),
+  assignableRoles: () => api.get("/roles/assignable"),
   roles: () => api.get("/roles"),
   audits: (params?: Record<string, unknown>) =>
     api.get("/audit-logs", { params }),
@@ -186,14 +188,16 @@ export const adminApi = {
     api.post("/admin/support-rides", data),
   updateSupportRide: (rideId: string, data: Record<string, unknown>) =>
     api.patch(`/admin/support-rides/${rideId}`, data),
-  kycRecords: (type: "driver" | "passenger", status?: string) =>
-    api.get("/admin/kyc", { params: { type, status } }),
+  kycRecords: (type: "driver" | "passenger", status?: string, page = 1) =>
+    api.get("/admin/kyc", { params: { type, status, page, limit: 25 } }),
+  kycDetail: (type: "driver" | "passenger", id: string) => api.get(`/admin/kyc/${type}/${id}`),
   reviewKyc: (
     type: "driver" | "passenger",
     id: string,
     status: "approved" | "correction" | "rejected",
     remarks?: string,
-  ) => api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks }),
+    review?: { fieldReviews: {key:string;status:string;reason:string}[]; expectedUpdatedAt:string },
+  ) => api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks, ...review }),
   safetyEvents: (status?: string) =>
     api.get("/production/admin/safety-events", { params: { status } }),
   updateSafetyEvent: (id: string, data: Record<string, unknown>) =>
