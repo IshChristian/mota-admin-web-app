@@ -198,6 +198,10 @@ export const adminApi = {
     remarks?: string,
     review?: { fieldReviews: {key:string;status:string;reason:string}[]; expectedUpdatedAt:string },
   ) => api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks, ...review }),
+  fuelVouchers: (status?: string) =>
+    api.get("/admin/fuel-vouchers", { params: status ? { status } : {} }),
+  redeemFuelVoucher: (code: string, station: string) =>
+    api.post("/admin/fuel-vouchers/redeem", { code, station }),
   safetyEvents: (status?: string) =>
     api.get("/production/admin/safety-events", { params: { status } }),
   updateSafetyEvent: (id: string, data: Record<string, unknown>) =>
