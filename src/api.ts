@@ -206,6 +206,22 @@ export const adminApi = {
     api.get("/admin/fuel-vouchers", { params: status ? { status } : {} }),
   redeemFuelVoucher: (code: string, station: string) =>
     api.post("/admin/fuel-vouchers/redeem", { code, station }),
+  /** Uploads a file straight to Cloudinary with a server-signed request; returns the secure URL. */
+  uploadSignedFile: async (file: File): Promise<string> => {
+    if (file.size > 20 * 1024 * 1024) throw new Error("Choose a file smaller than 20 MB.");
+    if (!/^image\/|^application\/pdf$/.test(file.type)) throw new Error("Upload a photo or a PDF.");
+    const auth = (await api.post("/uploads/signature")).data?.data;
+    if (!auth?.cloudName || !auth?.signature) throw new Error("The server did not authorize the upload.");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("api_key", auth.apiKey);
+    form.append("signature", auth.signature);
+    for (const [key, value] of Object.entries(auth.params)) form.append(key, String(value));
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${auth.cloudName}/auto/upload`, { method: "POST", body: form });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !/^https:\/\//.test(body?.secure_url || "")) throw new Error(body?.error?.message || `Upload failed (${response.status}).`);
+    return body.secure_url;
+  },
   updateKycFields: (type: "driver" | "passenger", id: string, updates: Record<string, string>, reason: string, expectedUpdatedAt?: string) =>
     api.patch(`/admin/kyc/${type}/${id}/fields`, { updates, reason, expectedUpdatedAt }),
   safetyEvents: (status?: string) =>
