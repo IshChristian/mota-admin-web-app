@@ -73,6 +73,7 @@ export type UserRecord = {
   isEmailVerified?: boolean;
   kycLevel: "basic" | "full";
   registrationStatus?: string;
+  registrationPaid?: boolean;
   createdAt: string;
 };
 export type UserInput = Partial<UserRecord> & {
