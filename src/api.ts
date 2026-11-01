@@ -198,10 +198,16 @@ export const adminApi = {
     remarks?: string,
     review?: { fieldReviews: {key:string;status:string;reason:string}[]; expectedUpdatedAt:string },
   ) => api.patch(`/admin/kyc/${type}/${id}/review`, { status, remarks, ...review }),
+  setRegistrationPayment: (id: string, paid: boolean, reason: string) =>
+    api.patch(`/admin/users/${id}/registration-payment`, { paid, reason }),
+  setRidePayment: (rideId: string, paymentStatus: "pending" | "successful" | "failed", reason: string) =>
+    api.patch(`/admin/rides/${rideId}/payment`, { paymentStatus, reason }),
   fuelVouchers: (status?: string) =>
     api.get("/admin/fuel-vouchers", { params: status ? { status } : {} }),
   redeemFuelVoucher: (code: string, station: string) =>
     api.post("/admin/fuel-vouchers/redeem", { code, station }),
+  updateKycFields: (type: "driver" | "passenger", id: string, updates: Record<string, string>, reason: string, expectedUpdatedAt?: string) =>
+    api.patch(`/admin/kyc/${type}/${id}/fields`, { updates, reason, expectedUpdatedAt }),
   safetyEvents: (status?: string) =>
     api.get("/production/admin/safety-events", { params: { status } }),
   updateSafetyEvent: (id: string, data: Record<string, unknown>) =>
