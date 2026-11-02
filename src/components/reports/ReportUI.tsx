@@ -120,7 +120,7 @@ export function FilterForm({
         />
         Compare previous period
       </label>
-      <button className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white">
+      <button className="rounded-lg bg-lime px-4 py-2 font-semibold text-ink">
         Apply filters
       </button>
       <p className="text-xs text-slate-400 sm:col-span-2 xl:col-span-6">
@@ -177,7 +177,7 @@ export function ExportButtons({
             key={format}
             disabled={!allowed || Boolean(busy)}
             onClick={() => void download(format)}
-            className="rounded-lg border border-red-400/50 px-4 py-2 text-sm disabled:opacity-40"
+            className="rounded-lg border border-white/15 hover:bg-white/5 px-4 py-2 text-sm disabled:opacity-40"
           >
             {busy === format
               ? "Generating…"
@@ -202,8 +202,19 @@ export function ExportButtons({
     </div>
   );
 }
-const stringify = (v: unknown): string =>
-  v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+/** Readable cell values: Yes/No, local dates, names for linked people. */
+const stringify = (v: unknown): string => {
+  if (v == null || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "string" && ISO.test(v)) { const d = new Date(v); return Number.isNaN(d.getTime()) ? v : d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }); }
+  if (typeof v === "number") return v.toLocaleString();
+  if (typeof v === "object") { const o = v as Record<string, unknown>; if (o.firstName || o.lastName) return [o.firstName, o.lastName].filter(Boolean).join(" "); return JSON.stringify(v); }
+  return String(v);
+};
+const HEADER: Record<string, string> = { _id: "ID", id: "ID", isVerified: "Phone verified", isEmailVerified: "Email verified", isActive: "Active", kycLevel: "KYC level", registrationStatus: "Registration", registrationPaid: "Fee paid", createdAt: "Created", updatedAt: "Updated", rideStatus: "Ride status", paymentStatus: "Payment", driverId: "Driver", passengerId: "Passenger" };
+/** "registrationStatus" → "Registration status". */
+const humanize = (key: string) => HEADER[key] || key.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase()).replace(/\b(Id|Kyc|Gps|Otp)\b/g, (w) => w.toUpperCase());
 export function DataTable({
   rows,
   onRow,
@@ -244,7 +255,7 @@ export function DataTable({
                   }}
                   className="whitespace-nowrap"
                 >
-                  {key.replaceAll("_", " ")}{" "}
+                  {humanize(key)}{" "}
                   {sort === key ? (asc ? "↑" : "↓") : ""}
                 </button>
               </th>
@@ -270,7 +281,7 @@ export function DataTable({
               {onRow ? (
                 <td>
                   <button
-                    className="rounded-lg border border-red-400/50 px-3 py-2"
+                    className="rounded-lg border border-white/15 hover:bg-white/5 px-3 py-2"
                     onClick={() => onRow(row)}
                   >
                     Investigate
@@ -317,7 +328,7 @@ export function Bars({
           </div>
           <div className="mt-1 h-3 rounded bg-white/10">
             <div
-              className="h-full rounded bg-red-600"
+              className="h-full rounded bg-lime"
               style={{ width: `${(100 * Number(r.count || 0)) / max}%` }}
             />
           </div>

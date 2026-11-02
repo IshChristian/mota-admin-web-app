@@ -23,7 +23,7 @@ import {
 } from './pages';
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { DataAccessPage } from "./pages/DataAccessPage";
-import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from './pages/LoginPage';
 import { RolesCrudPage } from './pages/RolesCrudPage';
 import { AdminInfoPage } from './pages/AdminInfoPage';
 import { AdminStatusPage } from './pages/AdminStatusPage';
@@ -61,6 +61,8 @@ export default function App() {
         <AuthProvider>
         <Routes>
           <Route path="login" element={<LoginPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="info/:page" element={<AdminInfoPage />} />
           <Route path="status/:type" element={<AdminStatusPage />} />
           <Route element={<Protected />}>

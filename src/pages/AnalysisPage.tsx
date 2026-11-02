@@ -106,7 +106,7 @@ export function AnalysisPage() {
           </p>
         </div>
         {can("data:access_manage") ? (
-          <Link className="rounded-lg bg-red-600 px-4 py-2" to="/data-access">
+          <Link className="rounded-lg bg-lime px-4 py-2 font-semibold text-ink" to="/data-access">
             Manage data access
           </Link>
         ) : null}
@@ -121,7 +121,7 @@ export function AnalysisPage() {
               setPage(1);
               setFilters({ ...filters, status: "", q: "", role: "" });
             }}
-            className={`rounded-lg border px-4 py-2 text-sm ${active === key ? "border-red-500 bg-red-600 text-white" : "border-white/20 bg-panel"}`}
+            className={`rounded-lg border px-4 py-2 text-sm ${active === key ? "border-lime bg-lime font-semibold text-ink" : "border-white/20 bg-panel"}`}
           >
             {label}
           </button>
@@ -181,7 +181,7 @@ export function AnalysisPage() {
                   </div>
                 ))}
               </div>
-              <div className={`${panel} border-red-500/30`}>
+              <div className={`${panel} border-white/10`}>
                 <h3 className="font-semibold">Definitions and coverage</h3>
                 <p className="mt-2 text-sm text-slate-300">{report.note}</p>
                 {data.coverage.map((note: string) => (

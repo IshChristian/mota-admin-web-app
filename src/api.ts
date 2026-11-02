@@ -239,6 +239,22 @@ export const authApi = {
     api.post("/auth/login", { identifier, password }),
   me: () => api.get("/users/me"),
   updateMe: (data: Record<string, unknown>) => api.put("/users/me", data),
+  verifyTwoFactor: (challenge: string, code: string) => api.post("/auth/2fa/verify", { challenge, token: code }),
+  forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),
+  resetPassword: (token: string, newPassword: string) => api.post("/auth/reset-password", { token, newPassword }),
+  changePassword: (currentPassword: string, newPassword: string) => api.post("/users/me/change-password", { currentPassword, newPassword }),
+  setupTwoFactor: () => api.post("/auth/2fa/setup"),
+  enableTwoFactor: (code: string) => api.post("/auth/2fa/verify", { token: code }),
+  disableTwoFactor: (password: string, code: string) => api.post("/auth/2fa/disable", { password, code }),
+  sessions: () => api.get("/production/sessions"),
+  revokeSession: (sessionId: string) => api.delete(`/production/sessions/${sessionId}`),
+  signOutEverywhere: () => api.post("/auth/logout"),
+  exportMyData: () => api.get("/users/me/export"),
+};
+
+/** MOTA's own transaction records (not only Paypack). */
+export const ledgerApi = {
+  list: (params: { type?: string; status?: string; q?: string; from?: string; to?: string; page?: number }) => api.get("/admin/ledger", { params }),
 };
 
 export const notificationsApi = {
