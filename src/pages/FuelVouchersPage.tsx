@@ -39,15 +39,17 @@ export function FuelVouchersPage() {
   }, [status]);
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // Permissions arrive a moment after a page refresh, so this runs again once they do.
+  const canViewSettings = can('settings:view');
   useEffect(() => {
-    if (!can('settings:view')) return;
+    if (!canViewSettings) return;
     adminApi.configs().then((r) => {
       const map = Object.fromEntries(((r.data?.data || []) as Config[]).map((c) => [c.key, c.value]));
       setConfigs(map);
       setDraft(Object.fromEntries(RULES.map((rule) => [rule.key, String(map[rule.key] ?? '')])));
       setStationsJson(typeof map.fuel_stations === 'string' ? JSON.stringify(JSON.parse(map.fuel_stations as string || '[]'), null, 2) : '[]');
     }).catch(() => {});
-  }, []);
+  }, [canViewSettings]);
 
   const redeem = async (event: FormEvent) => {
     event.preventDefault();

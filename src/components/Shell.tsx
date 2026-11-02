@@ -5,25 +5,25 @@ import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../auth';
 
 const items = [
-  ['/overview', 'Overview', LayoutDashboard, 'admin:access'],
-  ['/users', 'Users', Users, 'user:view'],
-  ['/drivers', 'Drivers', Car, 'driver:view'],
-  ['/rides', 'Rides', Car, 'ride:view'],
-  ['/finance', 'Transactions', CircleDollarSign, 'finance:view'],
-  ['/withdrawals', 'Withdrawals', Landmark, 'finance:view'],
-  ['/fuel-vouchers', 'Fuel vouchers', Fuel, 'fuel_voucher:view'],
-  ['/loans', 'Loans', Landmark, 'loan:view'],
-  ['/fines', 'Fines', FileWarning, 'fines:view'],
-  ['/registrations', 'Registrations', ShieldCheck, 'registration:view'],
-  ['/kyc', 'KYC review', ShieldCheck, 'kyc:view'],
-  ['/roles', 'Staff & roles', Users, 'role:view'],
-  ['/analysis', 'Data analysis', Activity, 'analytics:view'],
-  ['/data-access', 'Data access', ShieldCheck, 'data:access_manage'],
-  ['/audit', 'Audit trail', Activity, 'audit:view'],
-  ['/support', 'Caller support', Users, 'support:view'],
-  ['/safety-disputes', 'Safety & disputes', ShieldCheck, 'support:view'],
-  ['/operations-map', 'Live map', Map, 'support:view'],
-  ['/settings', 'Settings', Settings, 'settings:view'],
+  ['/overview', 'Overview', LayoutDashboard, 'admin:access', ''],
+  ['/users', 'Users', Users, 'user:view', 'People'],
+  ['/drivers', 'Drivers', Car, 'driver:view', 'People'],
+  ['/registrations', 'Registrations', ShieldCheck, 'registration:view', 'People'],
+  ['/kyc', 'KYC review', ShieldCheck, 'kyc:view', 'People'],
+  ['/rides', 'Rides', Car, 'ride:view', 'Operations'],
+  ['/support', 'Caller support', Users, 'support:view', 'Operations'],
+  ['/safety-disputes', 'Safety & disputes', ShieldCheck, 'support:view', 'Operations'],
+  ['/operations-map', 'Live map', Map, 'support:view', 'Operations'],
+  ['/finance', 'Transactions', CircleDollarSign, 'finance:view', 'Money'],
+  ['/withdrawals', 'Withdrawals', Landmark, 'finance:view', 'Money'],
+  ['/fuel-vouchers', 'Fuel vouchers', Fuel, 'fuel_voucher:view', 'Money'],
+  ['/loans', 'Loans', Landmark, 'loan:view', 'Money'],
+  ['/fines', 'Fines', FileWarning, 'fines:view', 'Money'],
+  ['/analysis', 'Data analysis', Activity, 'analytics:view', 'Reports'],
+  ['/audit', 'Audit trail', Activity, 'audit:view', 'Reports'],
+  ['/roles', 'Staff & roles', Users, 'role:view', 'System'],
+  ['/data-access', 'Data access', ShieldCheck, 'data:access_manage', 'System'],
+  ['/settings', 'Settings', Settings, 'settings:view', 'System'],
 ] as const;
 
 export function Shell() {
@@ -46,7 +46,7 @@ export function Shell() {
     {open ? <button aria-label="Close menu" className="fixed inset-0 z-30 bg-black/60 lg:hidden" onClick={() => setOpen(false)} /> : null}
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10 bg-ink/95 p-5 backdrop-blur-xl transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="mb-5 flex shrink-0 items-center justify-between"><NavLink to="/overview" className="flex items-center gap-3"><img src="/mota-logo.png" alt="MOTA" className="h-12 w-20 object-contain"/><span><b>MOTA CONTROL</b><small className="block text-xs text-slate-500">Operations console</small></span></NavLink><button aria-label="Close navigation" className="lg:hidden" onClick={() => setOpen(false)}><X/></button></div>
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">{visible.map(([path,label,Icon]) => <NavLink key={path} to={path} onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${isActive ? 'bg-lime text-ink' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Icon size={18}/>{label}</NavLink>)}</nav>
+      <nav aria-label="Main" className="nav-scroll min-h-0 flex-1 overflow-y-auto pr-1">{visible.map(([path,label,Icon,,group], index) => <div key={path}>{group && group !== visible[index - 1]?.[4] ? <div className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group}</div> : null}<NavLink to={path} onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-medium ${isActive ? 'bg-lime text-ink' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Icon size={17}/>{label}</NavLink></div>)}</nav>
       <div className="my-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
         <Link aria-label="Search" to="/info/search" className="grid place-items-center rounded-xl bg-white/5 p-2 text-slate-400 hover:text-white"><Search size={17}/><small>Search</small></Link>
         <Link aria-label="Help" to="/info/help" className="grid place-items-center rounded-xl bg-white/5 p-2 text-slate-400 hover:text-white"><HelpCircle size={17}/><small>Help</small></Link>

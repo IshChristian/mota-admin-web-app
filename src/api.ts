@@ -149,10 +149,10 @@ export const adminApi = {
     api.get("/admin/rides", { params }),
   cancelRide: (id: string, reason: string) =>
     api.patch(`/admin/rides/${id}/cancel`, { reason }),
-  loans: () => api.get("/loans/admin/all", { params: { limit: 100 } }),
+  loans: (status?: string) => api.get("/loans/admin/all", { params: { limit: 100, ...(status ? { status } : {}) } }),
   decideLoan: (loanId: string, action: "approve" | "reject") =>
     api.post("/loans/admin/approve", { loanId, action }),
-  fines: () => api.get("/fine-requests/all", { params: { limit: 100 } }),
+  fines: (status?: string) => api.get("/fine-requests/all", { params: { limit: 100, ...(status ? { status } : {}) } }),
   approveFine: (id: string, notes?: string) =>
     api.put(`/fine-requests/${id}/approve`, { notes }),
   rejectFine: (id: string, reason: string) =>
