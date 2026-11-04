@@ -30,6 +30,7 @@ import { AdminStatusPage } from './pages/AdminStatusPage';
 import { SafetyDisputesPage } from './pages/SafetyDisputesPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { WithdrawalsPage } from './pages/WithdrawalsPage';
+import { AccessRequestsPage } from './pages/AccessRequestsPage';
 import { FuelVouchersPage } from './pages/FuelVouchersPage';
 import { useEffect, useState } from 'react';
 
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="roles" element={<RolesCrudPage />} />
             <Route path="analysis" element={<AnalysisPage />} />
             <Route path="data-access" element={<DataAccessPage />} />
+            <Route path="access-requests" element={<AccessRequestsPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="support" element={<SupportPage />} />

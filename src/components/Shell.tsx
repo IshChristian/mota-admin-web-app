@@ -15,7 +15,7 @@ const items = [
   ['/safety-disputes', 'Safety & disputes', ShieldCheck, 'support:view', 'Operations'],
   ['/operations-map', 'Live map', Map, 'support:view', 'Operations'],
   ['/finance', 'Transactions', CircleDollarSign, 'finance:view', 'Money'],
-  ['/withdrawals', 'Withdrawals', Landmark, 'finance:view', 'Money'],
+  ['/withdrawals', 'Withdrawals', Landmark, 'withdrawal:view', 'Money'],
   ['/fuel-vouchers', 'Fuel vouchers', Fuel, 'fuel_voucher:view', 'Money'],
   ['/loans', 'Loans', Landmark, 'loan:view', 'Money'],
   ['/fines', 'Fines', FileWarning, 'fines:view', 'Money'],
@@ -23,6 +23,7 @@ const items = [
   ['/audit', 'Audit trail', Activity, 'audit:view', 'Reports'],
   ['/roles', 'Staff & roles', Users, 'role:view', 'System'],
   ['/data-access', 'Data access', ShieldCheck, 'data:access_manage', 'System'],
+  ['/access-requests', 'Access requests', ShieldCheck, 'access_request:approve', 'System'],
   ['/settings', 'Settings', Settings, 'settings:view', 'System'],
 ] as const;
 

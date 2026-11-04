@@ -3,6 +3,10 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { field, panel } from "../components/reports/ReportUI";
+import { groups } from "../permissions";
+
+const REPORTING = new Set<string>(groups.Reporting);
+const SUPERADMIN_ONLY = ["data:access_manage", "access_request:approve"];
 const labels: Record<string, string> = {
   "analytics:view": "Open data analysis",
   "analytics:users": "Users and onboarding",
@@ -25,7 +29,8 @@ export function DataAccessPage() {
     [error, setError] = useState(""),
     [success, setSuccess] = useState(""),
     [busy, setBusy] = useState(false),
-    [reload, setReload] = useState(0);
+    [reload, setReload] = useState(0),
+    [effective, setEffective] = useState<string[]>([]);
   useEffect(() => {
     if (!can("data:access_manage")) return;
     let active = true;
@@ -69,6 +74,26 @@ export function DataAccessPage() {
         next.push("audit:view");
       return next;
     });
+  };
+  // Everything except reporting (handled above): differences from the role become per-person grants/removals.
+  const roleBase: string[] = selected?.rolePermissions || [];
+  const grants = effective.filter((p) => !REPORTING.has(p) && !roleBase.includes(p));
+  const revokes = roleBase.filter((p) => !REPORTING.has(p) && !effective.includes(p));
+  const flip = (key: string) => setEffective((current) => (current.includes(key) ? current.filter((p) => p !== key) : [...current, key]));
+  const savePermissions = async () => {
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      await api.put(`/reports/access/users/${selected._id}/permissions`, { grants, revokes });
+      setSuccess("Permissions saved. The person's next request uses them.");
+      setReload((v) => v + 1);
+      if (selected._id === staff?.id) await refresh();
+    } catch (e: any) {
+      setError(e.response?.data?.message || "Could not save permissions.");
+    } finally {
+      setBusy(false);
+    }
   };
   const save = async () => {
     setBusy(true);
@@ -138,6 +163,7 @@ export function DataAccessPage() {
               onClick={() => {
                 setSelected(u);
                 setPermissions(u.permissions || []);
+                setEffective(u.allPermissions || []);
                 setSuccess("");
               }}
               className={`${panel} w-full text-left ${selected?._id === u._id ? "border-red-500" : ""}`}
@@ -196,6 +222,55 @@ export function DataAccessPage() {
                 className="rounded-lg bg-red-600 px-5 py-3 disabled:opacity-50"
               >
                 {busy ? "Saving…" : "Save reporting access"}
+              </button>
+              <h4 className="mt-10 text-lg font-semibold">All permissions</h4>
+              <p className="mt-1 text-sm text-slate-400">
+                Ticked = this person can do it. Changes from their role (
+                <b>{selected.role}</b>) apply to this person only:{" "}
+                <span className="text-lime">{grants.length} added</span>,{" "}
+                <span className="text-red-300">{revokes.length} removed</span>.
+                Create, update and delete stay off unless you tick them; staff
+                can also ask for one action through Request access.
+              </p>
+              {Object.entries(groups)
+                .filter(([group]) => group !== "Reporting")
+                .map(([group, list]) => (
+                  <fieldset key={group} className="mt-5">
+                    <legend className="text-sm font-bold">{group}</legend>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {list
+                        .filter((key) => !REPORTING.has(key))
+                        .map((key) => {
+                          const on = effective.includes(key);
+                          const changed = on !== roleBase.includes(key);
+                          const locked =
+                            busy ||
+                            (staff?.role !== "superadmin" &&
+                              (SUPERADMIN_ONLY.includes(key) || !can(key)));
+                          return (
+                            <label
+                              key={key}
+                              className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${changed ? "border-lime/60" : "border-white/10"}`}
+                            >
+                              <input type="checkbox" disabled={locked} checked={on} onChange={() => flip(key)} />
+                              <code className="break-all text-xs">{key}</code>
+                              {changed ? (
+                                <span className="ml-auto text-xs text-lime">
+                                  {on ? "added" : "removed"}
+                                </span>
+                              ) : null}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </fieldset>
+                ))}
+              <button
+                disabled={busy}
+                onClick={() => void savePermissions()}
+                className="mt-6 rounded-lg bg-red-600 px-5 py-3 disabled:opacity-50"
+              >
+                {busy ? "Saving…" : "Save permissions"}
               </button>
             </>
           ) : (
