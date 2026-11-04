@@ -127,6 +127,19 @@ export const adminApi = {
     api.get("/admin/withdrawals", { params: status ? { status } : {} }),
   reviewWithdrawal: (id: string, reviewStatus: string, reviewNote: string) =>
     api.patch(`/admin/withdrawals/${id}/review`, { reviewStatus, reviewNote }),
+  manualPaidWithdrawal: (id: string, reference: string, note: string) =>
+    api.post(`/admin/withdrawals/${id}/manual-paid`, { reference, note }),
+  returnWithdrawal: (id: string, note: string) =>
+    api.post(`/admin/withdrawals/${id}/return`, { note }),
+  retryWithdrawal: (id: string) => api.post(`/admin/withdrawals/${id}/retry`),
+  accessRequests: (mine?: boolean, status?: string) =>
+    api.get("/access-requests", { params: { ...(mine ? { mine: 1 } : {}), ...(status ? { status } : {}) } }),
+  createAccessRequest: (data: { permission: string; targetType?: string; targetId?: string; reason: string }) =>
+    api.post("/access-requests", data),
+  decideAccessRequest: (id: string, decision: "approve" | "decline", note?: string) =>
+    api.post(`/access-requests/${id}/${decision}`, { note }),
+  updateStaffPermissions: (id: string, grants: string[], revokes: string[]) =>
+    api.put(`/reports/access/users/${id}/permissions`, { grants, revokes }),
   syncTransactions: (ref?: string) =>
     api.post("/admin/paypack/sync", ref ? { ref } : {}),
   permissionCatalog: () => api.get("/roles/permissions"),
