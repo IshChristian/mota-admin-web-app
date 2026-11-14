@@ -32,6 +32,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { WithdrawalsPage } from './pages/WithdrawalsPage';
 import { AccessRequestsPage } from './pages/AccessRequestsPage';
 import { FuelVouchersPage } from './pages/FuelVouchersPage';
+import { PromoCodesPage } from './pages/PromoCodesPage';
 import { useEffect, useState } from 'react';
 
 function OperationFeedback() {
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="finance" element={<FinancePage />} />
             <Route path="withdrawals" element={<WithdrawalsPage />} />
             <Route path="fuel-vouchers" element={<FuelVouchersPage />} />
+            <Route path="promo-codes" element={<PromoCodesPage />} />
             <Route path="loans" element={<LoansPage />} />
             <Route path="fines" element={<FinesPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />

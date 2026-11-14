@@ -84,6 +84,22 @@ export type UserInput = Partial<UserRecord> & {
   role: string;
   roleId?: string;
 };
+export type PromoInput = {
+  code: string; appliesTo: "ride" | "registration_fee"; discountType: "percent" | "fixed"; value: number;
+  maxDiscount?: number | null; minAmount?: number | null; startsAt?: string | null; endsAt?: string | null;
+  maxUsers?: number | null; perUserLimit: number; active: boolean; note?: string;
+};
+export type PromoRecord = PromoInput & {
+  _id: string; status: "active" | "scheduled" | "expired" | "used_up" | "off" | "archived";
+  usersCount: number; reservedCount: number; redeemedCount: number; totalDiscount: number; subsidyTotal: number;
+  archivedAt?: string | null; createdAt: string;
+};
+export type PromoRedemptionRecord = {
+  _id: string; status: "reserved" | "redeemed" | "released"; method: "momo" | "wallet" | "none"; appliesTo: string;
+  originalAmount: number; discount: number; paidAmount: number; subsidy: number; reservedAt: string; redeemedAt?: string; rideId?: string;
+  userId?: { _id: string; firstName: string; lastName: string; phone: string; role: string };
+};
+
 export const adminApi = {
   stats: () => api.get("/admin/stats"),
   operationsInsights: () => api.get("/admin/operations-insights"),
@@ -216,6 +232,14 @@ export const adminApi = {
     api.patch(`/admin/users/${id}/registration-payment`, { paid, reason }),
   setRidePayment: (rideId: string, paymentStatus: "pending" | "successful" | "failed", reason: string) =>
     api.patch(`/admin/rides/${rideId}/payment`, { paymentStatus, reason }),
+  // Promo codes (create, edit, switch off, delete/archive, monitor uses).
+  promos: {
+    list: (params: { status?: string; appliesTo?: string; q?: string } = {}) => api.get("/admin/promos", { params }),
+    get: (id: string, page = 1) => api.get(`/admin/promos/${id}`, { params: { page } }),
+    create: (data: PromoInput) => api.post("/admin/promos", data),
+    update: (id: string, data: Partial<PromoInput>) => api.patch(`/admin/promos/${id}`, data),
+    remove: (id: string) => api.delete(`/admin/promos/${id}`),
+  },
   fuelVouchers: (status?: string) =>
     api.get("/admin/fuel-vouchers", { params: status ? { status } : {} }),
   redeemFuelVoucher: (code: string, station: string) =>
