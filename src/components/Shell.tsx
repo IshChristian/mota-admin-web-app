@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Car, Fuel, CircleDollarSign, FileWarning, HelpCircle, Info, Landmark, LayoutDashboard, LogOut, Map, Menu, Search, Settings, ShieldCheck, UserCircle, Users, WifiOff, X } from 'lucide-react';
+import { Activity, Car, Fuel, Ticket, CircleDollarSign, FileWarning, HelpCircle, Info, Landmark, LayoutDashboard, LogOut, Map, Menu, Search, Settings, ShieldCheck, UserCircle, Users, WifiOff, X } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../auth';
@@ -17,6 +17,7 @@ const items = [
   ['/finance', 'Transactions', CircleDollarSign, 'finance:view', 'Money'],
   ['/withdrawals', 'Withdrawals', Landmark, 'withdrawal:view', 'Money'],
   ['/fuel-vouchers', 'Fuel vouchers', Fuel, 'fuel_voucher:view', 'Money'],
+  ['/promo-codes', 'Promo codes', Ticket, 'promo:view', 'Money'],
   ['/loans', 'Loans', Landmark, 'loan:view', 'Money'],
   ['/fines', 'Fines', FileWarning, 'fines:view', 'Money'],
   ['/analysis', 'Data analysis', Activity, 'analytics:view', 'Reports'],
