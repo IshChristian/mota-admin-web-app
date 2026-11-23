@@ -85,7 +85,7 @@ export type UserInput = Partial<UserRecord> & {
   roleId?: string;
 };
 export type PromoInput = {
-  code: string; appliesTo: "ride" | "registration_fee"; discountType: "percent" | "fixed"; value: number;
+  code: string; appliesTo: "ride" | "registration_fee"; discountType: "percent" | "fixed" | "free"; value: number;
   maxDiscount?: number | null; minAmount?: number | null; startsAt?: string | null; endsAt?: string | null;
   maxUsers?: number | null; perUserLimit: number; active: boolean; note?: string;
 };
@@ -201,6 +201,10 @@ export const adminApi = {
     api.patch(`/admin/support-cases/${id}`, data),
   deleteSupportCase: (id: string) => api.delete(`/admin/support-cases/${id}`),
   supportOperations: () => api.get("/admin/support-operations"),
+  /** Places, streets and street codes in Rwanda, nearest to `near` first. */
+  searchPlaces: (q: string, near: { latitude: number; longitude: number }) =>
+    api.get("/maps/search", { params: { q, lat: near.latitude, lng: near.longitude } }),
+  smsDriver: (id: string, message: string) => api.post(`/admin/drivers/${id}/sms`, { message }),
   logSupportContact: (id: string, data: Record<string, unknown>) =>
     api.post(`/admin/support-cases/${id}/contact`, data),
   notifySupportPassenger: (id: string) =>

@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { adminApi, type PromoInput, type PromoRecord, type PromoRedemptionRecord } from '../api';
 import { useAuth } from '../auth';
 import { ErrorBanner, PageHeader, RemoteTable, buttonClass, inputClass, secondaryButtonClass } from '../components/RemoteTable';
+import { fromDateInput, toDateInput } from '../utils/localDateTime';
 
 // Promo codes: MOTA pays the discount (drivers still earn on the full fare). A use counts
 // only when its payment succeeds; "MOTA cost" is the part of a ride discount the commission didn't cover.
@@ -13,26 +14,28 @@ const FOR_LABEL = { ride: 'Ride (passengers)', registration_fee: 'Registration f
 const rwf = (n: number) => `${Math.round(n || 0).toLocaleString()} RWF`;
 const message = (e: any, fallback: string) => e?.response?.data?.message || fallback;
 const discountLabel = (p: Pick<PromoInput, 'discountType' | 'value' | 'maxDiscount'>) =>
-  p.discountType === 'percent' ? `${p.value}%${p.maxDiscount ? ` (max ${rwf(p.maxDiscount)})` : ''}` : rwf(p.value);
-const toDateInput = (value?: string | null) => (value ? new Date(value).toISOString().slice(0, 16) : '');
+  p.discountType === 'free' ? 'Free' : p.discountType === 'percent' ? `${p.value}%${p.maxDiscount ? ` (max ${rwf(p.maxDiscount)})` : ''}` : rwf(p.value);
 
 type Draft = { code: string; appliesTo: PromoInput['appliesTo']; discountType: PromoInput['discountType']; value: string; maxDiscount: string; minAmount: string; startsAt: string; endsAt: string; maxUsers: string; perUserLimit: string; active: boolean; note: string };
 const EMPTY: Draft = { code: '', appliesTo: 'ride', discountType: 'percent', value: '10', maxDiscount: '', minAmount: '', startsAt: '', endsAt: '', maxUsers: '', perUserLimit: '1', active: true, note: '' };
 const draftOf = (p: PromoRecord): Draft => ({ code: p.code, appliesTo: p.appliesTo, discountType: p.discountType, value: String(p.value), maxDiscount: p.maxDiscount ? String(p.maxDiscount) : '', minAmount: p.minAmount ? String(p.minAmount) : '', startsAt: toDateInput(p.startsAt), endsAt: toDateInput(p.endsAt), maxUsers: p.maxUsers ? String(p.maxUsers) : '', perUserLimit: String(p.perUserLimit || 1), active: p.active, note: p.note || '' });
 const optional = (value: string) => (value.trim() === '' ? null : Number(value));
 const inputOf = (d: Draft): PromoInput => ({
-  code: d.code.trim().toUpperCase(), appliesTo: d.appliesTo, discountType: d.discountType, value: Number(d.value),
+  code: d.code.trim().toUpperCase(), appliesTo: d.appliesTo, discountType: d.discountType, value: d.discountType === 'free' ? 100 : Number(d.value),
   maxDiscount: d.discountType === 'percent' ? optional(d.maxDiscount) : null, minAmount: optional(d.minAmount),
-  startsAt: d.startsAt ? new Date(d.startsAt).toISOString() : null, endsAt: d.endsAt ? new Date(d.endsAt).toISOString() : null,
+  startsAt: fromDateInput(d.startsAt), endsAt: fromDateInput(d.endsAt),
   maxUsers: optional(d.maxUsers), perUserLimit: Number(d.perUserLimit || 1), active: d.active, note: d.note.trim(),
 });
 /** Live example so staff see what a passenger or driver would actually pay. */
 const example = (d: Draft) => {
   const sample = d.appliesTo === 'ride' ? 2000 : 5000;
+  if (d.discountType === 'free') return `On a ${rwf(sample)} ${d.appliesTo === 'ride' ? 'ride' : 'registration fee'}: free, pays nothing. No MoMo prompt is sent.`;
   const value = Number(d.value) || 0;
   let off = d.discountType === 'percent' ? Math.round((sample * value) / 100) : value;
   if (d.discountType === 'percent' && d.maxDiscount) off = Math.min(off, Number(d.maxDiscount));
   off = Math.max(0, Math.min(off, sample));
+  // Percentage and fixed fee codes leave the 100 RWF MoMo minimum; only a free code makes the fee free.
+  if (d.appliesTo === 'registration_fee') off = Math.min(off, sample - 100);
   return `On a ${rwf(sample)} ${d.appliesTo === 'ride' ? 'ride' : 'registration fee'}: ${rwf(off)} off, pays ${rwf(sample - off)}.`;
 };
 
@@ -144,9 +147,9 @@ export function PromoCodesPage() {
             {locked ? <p className="text-sm text-amber-300">This code has been used, so its text and type can't change.</p> : null}
             <div className="grid gap-4 md:grid-cols-2">
               <label className="text-sm">Code<input className={`${inputClass} font-mono uppercase`} value={draft.code} disabled={locked} onChange={(e) => set({ code: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20) })} placeholder="MOTA20" required /><span className="mt-1 block text-xs text-slate-400">3–20 letters, numbers or dashes.</span></label>
-              <label className="text-sm">For<select className={inputClass} value={draft.appliesTo} disabled={locked} onChange={(e) => set({ appliesTo: e.target.value as Draft['appliesTo'] })}><option value="ride">{FOR_LABEL.ride}</option><option value="registration_fee">{FOR_LABEL.registration_fee}</option></select></label>
-              <label className="text-sm">Discount type<select className={inputClass} value={draft.discountType} onChange={(e) => set({ discountType: e.target.value as Draft['discountType'] })}><option value="percent">Percentage</option><option value="fixed">Fixed amount (RWF)</option></select></label>
-              <label className="text-sm">{draft.discountType === 'percent' ? 'Percentage off' : 'Amount off (RWF)'}<input type="number" min={1} max={draft.discountType === 'percent' ? 100 : undefined} className={inputClass} value={draft.value} onChange={(e) => set({ value: e.target.value })} required /></label>
+              <label className="text-sm">For<select className={inputClass} value={draft.appliesTo} disabled={locked} onChange={(e) => set({ appliesTo: e.target.value as Draft['appliesTo'] })}><option value="ride">{FOR_LABEL.ride}</option><option value="registration_fee">{FOR_LABEL.registration_fee}</option></select>{draft.appliesTo === 'registration_fee' && draft.discountType !== 'free' ? <span className="mt-1 block text-xs text-slate-400">Drivers still pay at least 100 RWF. Choose Free for nothing to pay.</span> : null}</label>
+              <label className="text-sm">Discount type<select className={inputClass} value={draft.discountType} onChange={(e) => set({ discountType: e.target.value as Draft['discountType'] })}><option value="percent">Percentage</option><option value="fixed">Fixed amount (RWF)</option><option value="free">Free (nothing to pay)</option></select></label>
+              {draft.discountType !== 'free' ? <label className="text-sm">{draft.discountType === 'percent' ? 'Percentage off' : 'Amount off (RWF)'}<input type="number" min={1} max={draft.discountType === 'percent' ? 100 : undefined} className={inputClass} value={draft.value} onChange={(e) => set({ value: e.target.value })} required /></label> : null}
               {draft.discountType === 'percent' ? <label className="text-sm">Maximum discount (RWF, optional)<input type="number" min={1} className={inputClass} value={draft.maxDiscount} onChange={(e) => set({ maxDiscount: e.target.value })} placeholder="No cap" /></label> : null}
               <label className="text-sm">Minimum fare / fee (RWF, optional)<input type="number" min={0} className={inputClass} value={draft.minAmount} onChange={(e) => set({ minAmount: e.target.value })} placeholder="Any amount" /></label>
               <label className="text-sm">Number of people who can use it<input type="number" min={1} className={inputClass} value={draft.maxUsers} onChange={(e) => set({ maxUsers: e.target.value })} placeholder="No limit" /><span className="mt-1 block text-xs text-slate-400">Different people. Empty means no limit.</span></label>
