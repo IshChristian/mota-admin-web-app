@@ -67,7 +67,7 @@ export type UserRecord = {
   phone: string;
   email?: string;
   role: string;
-  roleId?: RoleRecord | string;
+  roleId?: RoleRecord | string | null;
   isActive: boolean;
   isVerified: boolean;
   isEmailVerified?: boolean;
