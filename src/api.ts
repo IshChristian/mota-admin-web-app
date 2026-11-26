@@ -237,6 +237,13 @@ export const adminApi = {
   setRidePayment: (rideId: string, paymentStatus: "pending" | "successful" | "failed", reason: string) =>
     api.patch(`/admin/rides/${rideId}/payment`, { paymentStatus, reason }),
   // Promo codes (create, edit, switch off, delete/archive, monitor uses).
+  moves: {
+    list: (params: { status?: string; q?: string; page?: number } = {}) => api.get("/admin/moves", { params }),
+    get: (id: string) => api.get(`/admin/moves/${id}`),
+    update: (id: string, data: Record<string, unknown>) => api.patch(`/admin/moves/${id}`, data),
+    trucks: () => api.get("/admin/moves/trucks"),
+    updateTruck: (key: string, data: Record<string, unknown>) => api.patch(`/admin/moves/trucks/${key}`, data),
+  },
   promos: {
     list: (params: { status?: string; appliesTo?: string; q?: string } = {}) => api.get("/admin/promos", { params }),
     get: (id: string, page = 1) => api.get(`/admin/promos/${id}`, { params: { page } }),
