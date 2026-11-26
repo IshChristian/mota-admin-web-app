@@ -3,7 +3,7 @@ import { adminApi } from '../api';
 import { useAuth } from '../auth';
 import { ErrorBanner, PageHeader, RemoteTable, buttonClass, inputClass, secondaryButtonClass } from '../components/RemoteTable';
 
-// MOTA Kwimuka (house moving), partner-first: a customer books in the app, the team calls,
+// MOTA HomeMove (house moving), partner-first: a customer books in the app, the team calls,
 // visits when asked, sends a price, and assigns a partner truck once the customer accepts.
 
 type Stop = { name: string; address?: string; latitude: number; longitude: number; placeType: string; floor: number; hasElevator: boolean; truckAccess: string; landmark?: string; contactName?: string; contactPhone?: string };
@@ -60,7 +60,7 @@ export function MovingPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader title="House moving (MOTA Kwimuka)" description="Customers book a truck in the app. Call them, visit when asked, send the price, then book a partner truck." />
+      <PageHeader title="House moving (MOTA HomeMove)" description="Customers book a truck in the app. Call them, visit when asked, send the price, then book a partner truck." />
       <div className="flex gap-2">
         <button className={tab === 'requests' ? buttonClass : secondaryButtonClass} onClick={() => setTab('requests')}>Requests{counts.requested ? ` · ${counts.requested} new` : ''}</button>
         <button className={tab === 'trucks' ? buttonClass : secondaryButtonClass} onClick={() => setTab('trucks')}>Trucks & prices</button>
@@ -72,7 +72,7 @@ export function MovingPage() {
             <label className="text-sm">Status<select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
               {FILTERS.map((s) => <option key={s} value={s}>{s === 'active' ? `Open (${activeCount})` : s ? `${STATUS_LABEL[s]} (${counts[s] || 0})` : 'All'}</option>)}
             </select></label>
-            <label className="text-sm">Search<input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="KW-… , phone or place" /></label>
+            <label className="text-sm">Search<input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="HM-… , phone or place" /></label>
             <button className={secondaryButtonClass} onClick={() => void refresh()}>Refresh</button>
           </div>
           {error ? <ErrorBanner message={error} retry={() => void refresh()} /> : null}
